@@ -1,137 +1,29 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Upload, FileText, AlertCircle, Plus, X } from 'lucide-react';
-import { adsDataProcessor } from '@/services/adsDataProcessor';
-import { useAdsData } from '@/hooks/useAdsData';
-import { toast } from '@/hooks/use-toast';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, AlertCircle, Plus, X } from 'lucide-react';
 import { Project } from '@/types/projects';
-import { Badge } from '@/components/ui/badge';
+import { useBrandImport } from '@/hooks/useBrandImport';
+import { BrandImportTab } from './BrandImport/BrandImportTab';
 
 interface BrandDataImportProps {
   selectedProject?: Project;
 }
 
-interface BrandImportData {
-  id: string;
-  brandName: string;
-  rawData: string;
-  preview: string[][];
-}
-
 export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
-  const [brandImports, setBrandImports] = useState<BrandImportData[]>([
-    { id: '1', brandName: '', rawData: '', preview: [] }
-  ]);
-  const [activeTab, setActiveTab] = useState('1');
-  const { insertAds, isInserting } = useAdsData([], selectedProject?.id);
-
-  const addBrandTab = () => {
-    const newId = Date.now().toString();
-    setBrandImports(prev => [...prev, { 
-      id: newId, 
-      brandName: '', 
-      rawData: '', 
-      preview: [] 
-    }]);
-    setActiveTab(newId);
-  };
-
-  const removeBrandTab = (id: string) => {
-    if (brandImports.length <= 1) return;
-    
-    setBrandImports(prev => prev.filter(brand => brand.id !== id));
-    
-    if (activeTab === id) {
-      const remainingBrands = brandImports.filter(brand => brand.id !== id);
-      setActiveTab(remainingBrands[0]?.id || '');
-    }
-  };
-
-  const updateBrandData = (id: string, field: keyof BrandImportData, value: string | string[][]) => {
-    setBrandImports(prev => prev.map(brand => 
-      brand.id === id ? { ...brand, [field]: value } : brand
-    ));
-  };
-
-  const handleProcessBrand = (brandData: BrandImportData) => {
-    if (!selectedProject) {
-      toast({
-        title: "Projet requis",
-        description: "Veuillez sélectionner un projet avant d'importer des données",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!brandData.rawData.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez coller des données à traiter",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!brandData.brandName.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez saisir un nom de marque",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Utiliser le nom de marque saisi pour forcer l'attribution
-      const processed = adsDataProcessor.processSheetData(brandData.rawData, brandData.brandName.trim());
-      
-      if (processed.errors.length > 0) {
-        toast({
-          title: "Attention",
-          description: `${processed.errors.length} erreurs détectées lors du traitement pour ${brandData.brandName}`,
-          variant: "destructive",
-        });
-        console.log('Erreurs:', processed.errors);
-      }
-
-      if (processed.data.length > 0) {
-        updateBrandData(brandData.id, 'preview', processed.preview);
-        insertAds(processed.data);
-      } else {
-        toast({
-          title: "Erreur",
-          description: "Aucune donnée valide trouvée",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Erreur lors du traitement des données",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleProcessAll = () => {
-    const validBrands = brandImports.filter(brand => brand.rawData.trim() && brand.brandName.trim());
-    
-    if (validBrands.length === 0) {
-      toast({
-        title: "Erreur",
-        description: "Aucune donnée à traiter ou nom de marque manquant",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    validBrands.forEach(brand => handleProcessBrand(brand));
-  };
+  const {
+    brandImports,
+    activeTab,
+    setActiveTab,
+    addBrandTab,
+    removeBrandTab,
+    updateBrandData,
+    processBrand,
+    processAllBrands,
+    isInserting
+  } = useBrandImport(selectedProject);
 
   return (
     <Card>
@@ -163,7 +55,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
             Ajouter une marque
           </Button>
           <Button 
-            onClick={handleProcessAll}
+            onClick={processAllBrands}
             disabled={isInserting || !selectedProject}
             className="ml-auto"
           >
@@ -194,73 +86,14 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
           </TabsList>
 
           {brandImports.map((brand) => (
-            <TabsContent key={brand.id} value={brand.id} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Nom de la marque <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="ex: Picard, Swapn..."
-                  value={brand.brandName}
-                  onChange={(e) => updateBrandData(brand.id, 'brandName', e.target.value)}
-                  disabled={!selectedProject}
-                  className={!brand.brandName.trim() ? 'border-orange-300' : ''}
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Toutes les publicités importées seront étiquetées avec ce nom de marque
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Données Google Sheets
-                </label>
-                <Textarea
-                  placeholder="Collez ici les données copiées depuis Google Sheets (Ctrl+V)..."
-                  value={brand.rawData}
-                  onChange={(e) => updateBrandData(brand.id, 'rawData', e.target.value)}
-                  rows={8}
-                  className="font-mono text-sm"
-                  disabled={!selectedProject}
-                />
-              </div>
-
-              <Button 
-                onClick={() => handleProcessBrand(brand)}
-                disabled={!brand.rawData.trim() || !brand.brandName.trim() || isInserting || !selectedProject}
-                className="w-full"
-              >
-                {isInserting ? 'Traitement en cours...' : `Traiter ${brand.brandName || 'cette marque'}`}
-              </Button>
-
-              {brand.preview.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4" />
-                      Aperçu des données - {brand.brandName} (5 premières lignes)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <tbody>
-                          {brand.preview.map((row, i) => (
-                            <tr key={i} className={i === 0 ? 'font-semibold bg-gray-50' : ''}>
-                              {row.slice(0, 5).map((cell, j) => (
-                                <td key={j} className="border p-1 truncate max-w-32">
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+            <BrandImportTab
+              key={brand.id}
+              brand={brand}
+              onUpdate={updateBrandData}
+              onProcess={processBrand}
+              isProcessing={isInserting}
+              disabled={!selectedProject}
+            />
           ))}
         </Tabs>
       </CardContent>
