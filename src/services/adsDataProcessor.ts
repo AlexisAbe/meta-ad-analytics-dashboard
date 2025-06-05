@@ -31,7 +31,7 @@ export const adsDataProcessor = {
     return { data: processedData, errors, preview };
   },
 
-  private mapRowToAd(headers: string[], values: string[]): AdsData | null {
+  mapRowToAd(headers: string[], values: string[]): AdsData | null {
     const getValueByHeader = (headerPattern: string): string => {
       const index = headers.findIndex(h => h.toLowerCase().includes(headerPattern.toLowerCase()));
       return index !== -1 ? values[index] || '' : '';
@@ -76,7 +76,7 @@ export const adsDataProcessor = {
     };
   },
 
-  private parseDate(dateStr: string): string | null {
+  parseDate(dateStr: string): string | null {
     if (!dateStr) return null;
     
     // Handle DD/MM/YYYY format
