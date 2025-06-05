@@ -103,11 +103,20 @@ export const adsDataProcessor = {
       return null;
     }
     
-    // Si pas de date de fin, c'est une campagne active -> date d'aujourd'hui
-    let endDate = this.parseDate(endDateStr);
-    if (!endDate) {
+    // Si pas de date de fin ou date de fin vide, c'est une campagne active -> date d'aujourd'hui
+    let endDate: string;
+    if (!endDateStr || endDateStr.trim() === '') {
       endDate = new Date().toISOString().substring(0, 10);
       console.log('Date de fin manquante, campagne active détectée. Date de fin assignée:', endDate);
+    } else {
+      const parsedEndDate = this.parseDate(endDateStr);
+      if (!parsedEndDate) {
+        // Si la date de fin est invalide, utiliser la date d'aujourd'hui
+        endDate = new Date().toISOString().substring(0, 10);
+        console.log('Date de fin invalide, utilisation de la date d\'aujourd\'hui:', endDate);
+      } else {
+        endDate = parsedEndDate;
+      }
     }
 
     // Extract other fields with exact headers
@@ -213,26 +222,41 @@ export const adsDataProcessor = {
   },
 
   parseDate(dateStr: string): string | null {
-    if (!dateStr || dateStr.trim() === '') return null;
+    if (!dateStr || dateStr.trim() === '') {
+      console.log('Date vide détectée');
+      return null;
+    }
+    
+    const cleanDateStr = dateStr.trim();
     
     // Handle DD/MM/YYYY format
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const ddmmyyyyMatch = cleanDateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyyyyMatch) {
+      const [, day, month, year] = ddmmyyyyMatch;
+      const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      console.log(`Date DD/MM/YYYY convertie: ${cleanDateStr} -> ${formattedDate}`);
+      return formattedDate;
     }
     
-    // Handle YYYY-MM-DD format
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateStr;
+    // Handle YYYY-MM-DD format (already correct)
+    if (cleanDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      console.log(`Date YYYY-MM-DD validée: ${cleanDateStr}`);
+      return cleanDateStr;
     }
     
-    // Handle other formats
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().substring(0, 10);
+    // Try to parse with JavaScript Date (with validation)
+    try {
+      const date = new Date(cleanDateStr);
+      if (!isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
+        const formattedDate = date.toISOString().substring(0, 10);
+        console.log(`Date JavaScript convertie: ${cleanDateStr} -> ${formattedDate}`);
+        return formattedDate;
+      }
+    } catch (error) {
+      console.log(`Erreur lors du parsing de la date: ${cleanDateStr}`, error);
     }
     
+    console.log(`Date non parsable: ${cleanDateStr}`);
     return null;
   }
 };
