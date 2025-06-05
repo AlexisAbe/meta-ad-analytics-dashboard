@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -76,13 +77,23 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
       return;
     }
 
+    if (!brandData.brandName.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir un nom de marque",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const processed = adsDataProcessor.processSheetData(brandData.rawData);
+      // Utiliser le nom de marque saisi pour forcer l'attribution
+      const processed = adsDataProcessor.processSheetData(brandData.rawData, brandData.brandName.trim());
       
       if (processed.errors.length > 0) {
         toast({
           title: "Attention",
-          description: `${processed.errors.length} erreurs détectées lors du traitement pour ${brandData.brandName || 'cette marque'}`,
+          description: `${processed.errors.length} erreurs détectées lors du traitement pour ${brandData.brandName}`,
           variant: "destructive",
         });
         console.log('Erreurs:', processed.errors);
@@ -108,12 +119,12 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
   };
 
   const handleProcessAll = () => {
-    const validBrands = brandImports.filter(brand => brand.rawData.trim());
+    const validBrands = brandImports.filter(brand => brand.rawData.trim() && brand.brandName.trim());
     
     if (validBrands.length === 0) {
       toast({
         title: "Erreur",
-        description: "Aucune donnée à traiter",
+        description: "Aucune donnée à traiter ou nom de marque manquant",
         variant: "destructive",
       });
       return;
@@ -142,7 +153,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <strong>Projet sélectionné :</strong> {selectedProject.name}
             <br />
-            <strong>Note :</strong> Les données seront ajoutées au projet. Les imports multiples sont autorisés pour chaque marque.
+            <strong>Note :</strong> Les données seront étiquetées avec le nom de marque que vous spécifiez. Les imports multiples sont autorisés.
           </div>
         )}
 
@@ -186,14 +197,18 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
             <TabsContent key={brand.id} value={brand.id} className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  Nom de la marque (optionnel)
+                  Nom de la marque <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  placeholder="ex: Nike, Adidas..."
+                  placeholder="ex: Picard, Swapn..."
                   value={brand.brandName}
                   onChange={(e) => updateBrandData(brand.id, 'brandName', e.target.value)}
                   disabled={!selectedProject}
+                  className={!brand.brandName.trim() ? 'border-orange-300' : ''}
                 />
+                <p className="text-xs text-gray-600 mt-1">
+                  Toutes les publicités importées seront étiquetées avec ce nom de marque
+                </p>
               </div>
 
               <div>
@@ -212,7 +227,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
 
               <Button 
                 onClick={() => handleProcessBrand(brand)}
-                disabled={!brand.rawData.trim() || isInserting || !selectedProject}
+                disabled={!brand.rawData.trim() || !brand.brandName.trim() || isInserting || !selectedProject}
                 className="w-full"
               >
                 {isInserting ? 'Traitement en cours...' : `Traiter ${brand.brandName || 'cette marque'}`}
@@ -223,7 +238,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-sm">
                       <FileText className="h-4 w-4" />
-                      Aperçu des données - {brand.brandName || 'Marque'} (5 premières lignes)
+                      Aperçu des données - {brand.brandName} (5 premières lignes)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

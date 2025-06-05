@@ -5,7 +5,7 @@ import { brandExtractor } from '@/utils/brandExtractor';
 import { headerMatcher } from '@/utils/headerMatcher';
 
 export const adsDataProcessor = {
-  processSheetData(rawData: string): ProcessedSheetData {
+  processSheetData(rawData: string, forcedBrandName?: string): ProcessedSheetData {
     const lines = rawData.trim().split('\n');
     const errors: string[] = [];
     const processedData: AdsData[] = [];
@@ -20,6 +20,7 @@ export const adsDataProcessor = {
     
     console.log('Headers detectés:', headers);
     console.log('Nombre de colonnes:', headers.length);
+    console.log('Marque forcée:', forcedBrandName);
     
     // Check if we have tab-separated data
     if (headers.length === 1 && lines[0].includes(',')) {
@@ -38,7 +39,7 @@ export const adsDataProcessor = {
         const values = lines[i].split('\t');
         console.log(`Ligne ${i + 1}:`, values.slice(0, 8)); // Log first 8 values
         
-        const ad = this.mapRowToAd(headers, values);
+        const ad = this.mapRowToAd(headers, values, forcedBrandName);
         if (ad) {
           processedData.push(ad);
         } else {
@@ -54,7 +55,7 @@ export const adsDataProcessor = {
     return { data: processedData, errors, preview };
   },
 
-  mapRowToAd(headers: string[], values: string[]): AdsData | null {
+  mapRowToAd(headers: string[], values: string[], forcedBrandName?: string): AdsData | null {
     // Extract ID with exact Google Sheets header
     const adId = headerMatcher.getValueByHeader(headers, values, [
       'ID de la publicité',
@@ -142,8 +143,8 @@ export const adsDataProcessor = {
       'URL snapshot'
     ]);
 
-    // Extract brand intelligently
-    const brand = brandExtractor.extractBrand(adBody, linkTitle, linkCaption);
+    // Utiliser le nom de marque forcé ou extraire intelligemment
+    const brand = forcedBrandName || brandExtractor.extractBrand(adBody, linkTitle, linkCaption);
     
     const daysActive = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)));
     
