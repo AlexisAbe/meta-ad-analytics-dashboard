@@ -1,8 +1,8 @@
-
 export interface AdsData {
   id?: string;
   ad_id: string;
   brand: string;
+  project_id?: string;
   snapshot_url?: string;
   ad_body?: string;
   link_caption?: string;

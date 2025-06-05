@@ -2,18 +2,22 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, BarChart3 } from 'lucide-react';
 import { DataImport } from '@/components/DataImport';
 import { KPIOverview } from '@/components/KPIOverview';
 import { SeasonHeatmap } from '@/components/SeasonHeatmap';
 import { BrandDrilldown } from '@/components/BrandDrilldown';
 import { BrandFilter } from '@/components/BrandFilter';
+import { ProjectSelector } from '@/components/ProjectSelector';
+import { TopAdsAnalysis } from '@/components/TopAdsAnalysis';
 import { useAdsData } from '@/hooks/useAdsData';
 import { toast } from '@/hooks/use-toast';
+import { Project } from '@/types/projects';
 
 const Index = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const { ads, brands, isLoading } = useAdsData(selectedBrands);
+  const [selectedProject, setSelectedProject] = useState<Project | undefined>();
+  const { ads, brands, isLoading } = useAdsData(selectedBrands, selectedProject?.id);
 
   const handleBrandToggle = (brand: string) => {
     setSelectedBrands(prev => 
@@ -52,7 +56,8 @@ const Index = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `social-bench-export-${new Date().toISOString().split('T')[0]}.csv`;
+    const projectName = selectedProject?.name || 'tous-projets';
+    a.download = `social-bench-${projectName}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -91,9 +96,17 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Sélection de projet */}
+        <div className="mb-8">
+          <ProjectSelector
+            selectedProject={selectedProject}
+            onProjectSelect={setSelectedProject}
+          />
+        </div>
+
         {/* Import de données */}
         <div className="mb-8">
-          <DataImport />
+          <DataImport selectedProject={selectedProject} />
         </div>
 
         {/* Filtres */}
@@ -111,13 +124,17 @@ const Index = () => {
         {/* Contenu principal */}
         {ads.length > 0 ? (
           <Tabs defaultValue="kpi" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="kpi" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 KPI Overview
               </TabsTrigger>
               <TabsTrigger value="seasonal">Saisonnalité</TabsTrigger>
               <TabsTrigger value="brands">Drill-down</TabsTrigger>
+              <TabsTrigger value="top-ads" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Top Ads
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="kpi">
@@ -131,13 +148,22 @@ const Index = () => {
             <TabsContent value="brands">
               <BrandDrilldown ads={ads} selectedBrands={selectedBrands} />
             </TabsContent>
+
+            <TabsContent value="top-ads">
+              <TopAdsAnalysis projectId={selectedProject?.id} />
+            </TabsContent>
           </Tabs>
         ) : (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune donnée disponible</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {selectedProject ? 'Aucune donnée dans ce projet' : 'Aucune donnée disponible'}
+            </h3>
             <p className="text-gray-600">
-              Importez des données depuis Google Sheets pour commencer l'analyse
+              {selectedProject 
+                ? 'Importez des données depuis Google Sheets pour ce projet' 
+                : 'Sélectionnez un projet et importez des données depuis Google Sheets'
+              }
             </p>
           </div>
         )}

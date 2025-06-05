@@ -36,6 +36,7 @@ export type Database = {
           link_caption: string | null
           link_description: string | null
           link_title: string | null
+          project_id: string | null
           snapshot_url: string | null
           start_date: string | null
           start_month: string | null
@@ -66,6 +67,7 @@ export type Database = {
           link_caption?: string | null
           link_description?: string | null
           link_title?: string | null
+          project_id?: string | null
           snapshot_url?: string | null
           start_date?: string | null
           start_month?: string | null
@@ -96,9 +98,49 @@ export type Database = {
           link_caption?: string | null
           link_description?: string | null
           link_title?: string | null
+          project_id?: string | null
           snapshot_url?: string | null
           start_date?: string | null
           start_month?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "top_ads_monthly"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -115,9 +157,41 @@ export type Database = {
         }
         Relationships: []
       }
+      top_ads_monthly: {
+        Row: {
+          ad_id: string | null
+          brand: string | null
+          budget_estimated: number | null
+          duration: number | null
+          end_date: string | null
+          link_title: string | null
+          month: string | null
+          project_id: string | null
+          project_name: string | null
+          rank_by_duration: number | null
+          rank_by_reach: number | null
+          reach: number | null
+          start_date: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_top_ads_by_project: {
+        Args: { p_project_id: string; p_limit?: number; p_metric?: string }
+        Returns: {
+          brand: string
+          month: string
+          ad_id: string
+          link_title: string
+          reach: number
+          duration: number
+          budget_estimated: number
+          start_date: string
+          end_date: string
+          rank: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

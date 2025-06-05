@@ -5,26 +5,27 @@ import { adsDataService } from '@/services/adsDataService';
 import { AdsData } from '@/types/ads';
 import { toast } from '@/hooks/use-toast';
 
-export const useAdsData = (selectedBrands: string[] = []) => {
+export const useAdsData = (selectedBrands: string[] = [], projectId?: string) => {
   const queryClient = useQueryClient();
   
   const { data: ads = [], isLoading, error } = useQuery({
-    queryKey: ['ads', selectedBrands],
+    queryKey: ['ads', selectedBrands, projectId],
     queryFn: () => selectedBrands.length > 0 
-      ? adsDataService.getAdsByBrands(selectedBrands)
-      : adsDataService.getAllAds(),
+      ? adsDataService.getAdsByBrands(selectedBrands, projectId)
+      : adsDataService.getAllAds(projectId),
   });
 
   const { data: brands = [] } = useQuery({
-    queryKey: ['brands'],
-    queryFn: adsDataService.getBrands,
+    queryKey: ['brands', projectId],
+    queryFn: () => adsDataService.getBrands(projectId),
   });
 
   const insertMutation = useMutation({
-    mutationFn: (newAds: AdsData[]) => adsDataService.insertAds(newAds),
+    mutationFn: (newAds: AdsData[]) => adsDataService.insertAds(newAds, projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ads'] });
       queryClient.invalidateQueries({ queryKey: ['brands'] });
+      queryClient.invalidateQueries({ queryKey: ['topAds'] });
       toast({
         title: "Succès",
         description: "Données importées/mises à jour avec succès",
