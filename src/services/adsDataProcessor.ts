@@ -21,6 +21,7 @@ export const adsDataProcessor = {
     console.log('Headers detectés:', headers);
     console.log('Nombre de colonnes:', headers.length);
     console.log('Marque forcée:', forcedBrandName);
+    console.log('Première ligne de données (exemple):', lines[1]?.split('\t').slice(0, 10));
     
     // Check if we have tab-separated data
     if (headers.length === 1 && lines[0].includes(',')) {
@@ -37,15 +38,23 @@ export const adsDataProcessor = {
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = lines[i].split('\t');
-        console.log(`Ligne ${i + 1}:`, values.slice(0, 8)); // Log first 8 values
+        console.log(`Ligne ${i + 1} - Nombre de valeurs:`, values.length);
+        console.log(`Ligne ${i + 1} - Premières valeurs:`, values.slice(0, 10));
         
         const ad = this.mapRowToAd(headers, values, forcedBrandName);
         if (ad) {
+          console.log(`Ligne ${i + 1} - Ad créée:`, {
+            ad_id: ad.ad_id,
+            start_date: ad.start_date,
+            brand: ad.brand,
+            snapshot_url: ad.snapshot_url?.substring(0, 50) + '...'
+          });
           processedData.push(ad);
         } else {
           errors.push(`Ligne ${i + 1}: Données insuffisantes (ID ou date de début manquante)`);
         }
       } catch (error) {
+        console.error(`Erreur ligne ${i + 1}:`, error);
         errors.push(`Ligne ${i + 1}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       }
     }
@@ -56,16 +65,16 @@ export const adsDataProcessor = {
   },
 
   mapRowToAd(headers: string[], values: string[], forcedBrandName?: string): AdsData | null {
-    // Extract ID with exact Google Sheets header
-    const adId = headerMatcher.getValueByHeader(headers, values, [
-      'ID de la publicité',
-      'ID publicité', 
-      'Ad ID',
-      'ID'
-    ]);
+    console.log('Mapping avec headers:', headers.slice(0, 10));
+    console.log('Mapping avec values:', values.slice(0, 10));
+    
+    // Extract ID with exact Google Sheets header - MUST be first column
+    const adId = values[0]?.trim(); // Premier élément = ID de la publicité
+    
+    console.log('ID extrait (première colonne):', adId);
                  
-    if (!adId) {
-      console.log('ID de publicité non trouvé. Headers disponibles:', headers.slice(0, 10));
+    if (!adId || adId === '') {
+      console.log('ID de publicité vide dans la première colonne');
       return null;
     }
 
@@ -81,6 +90,8 @@ export const adsDataProcessor = {
       'Date de fin',
       'End Date'
     ]);
+    
+    console.log('Dates extraites:', { startDateStr, endDateStr });
     
     const startDate = dateParser.parseDate(startDateStr);
     
@@ -143,12 +154,20 @@ export const adsDataProcessor = {
       'URL snapshot'
     ]);
 
+    console.log('Champs extraits:', {
+      adId,
+      audienceTotal,
+      linkTitle: linkTitle?.substring(0, 30),
+      adBody: adBody?.substring(0, 30),
+      snapshotUrl: snapshotUrl?.substring(0, 50)
+    });
+
     // Utiliser le nom de marque forcé ou extraire intelligemment
     const brand = forcedBrandName || brandExtractor.extractBrand(adBody, linkTitle, linkCaption);
     
     const daysActive = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)));
     
-    return {
+    const result = {
       ad_id: adId,
       brand,
       snapshot_url: snapshotUrl,
@@ -175,5 +194,14 @@ export const adsDataProcessor = {
       budget_estimated: audienceTotal * 5, // CPM estimé à 5€
       start_month: new Date(startDate).toISOString().substring(0, 7)
     };
+    
+    console.log('Objet final créé:', {
+      ad_id: result.ad_id,
+      start_date: result.start_date,
+      start_month: result.start_month,
+      brand: result.brand
+    });
+    
+    return result;
   }
 };
