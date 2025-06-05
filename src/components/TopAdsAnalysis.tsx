@@ -66,7 +66,7 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
                   onClick={() => window.open(ad.snapshot_url, '_blank')}
                   className="h-6 px-2 text-xs"
                 >
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3 mr-1" />
                   Voir pub
                 </Button>
               )}
