@@ -27,7 +27,7 @@ export const useAdsData = (selectedBrands: string[] = []) => {
       queryClient.invalidateQueries({ queryKey: ['brands'] });
       toast({
         title: "Succès",
-        description: "Données importées avec succès",
+        description: "Données importées/mises à jour avec succès",
       });
     },
     onError: (error) => {

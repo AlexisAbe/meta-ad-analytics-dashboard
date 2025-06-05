@@ -35,14 +35,20 @@ export const adsDataService = {
   },
 
   async insertAds(ads: AdsData[]): Promise<void> {
+    // Utiliser upsert pour éviter les doublons
     const { error } = await supabase
       .from('ads_data')
-      .insert(ads);
+      .upsert(ads, { 
+        onConflict: 'ad_id,brand',
+        ignoreDuplicates: false 
+      });
     
     if (error) {
-      console.error('Error inserting ads:', error);
+      console.error('Error upserting ads:', error);
       throw error;
     }
+    
+    console.log(`Successfully upserted ${ads.length} ads`);
   },
 
   async getBrands(): Promise<string[]> {

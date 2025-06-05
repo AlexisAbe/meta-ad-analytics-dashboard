@@ -63,6 +63,10 @@ export const DataImport = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <strong>Note :</strong> Les données existantes seront automatiquement mises à jour si elles ont le même ID de publicité et la même marque.
+        </div>
+        
         <Textarea
           placeholder="Collez ici les données copiées depuis Google Sheets (Ctrl+V)..."
           value={rawData}
