@@ -1,5 +1,8 @@
 
 import { AdsData, ProcessedSheetData } from '@/types/ads';
+import { dateParser } from '@/utils/dateParser';
+import { brandExtractor } from '@/utils/brandExtractor';
+import { headerMatcher } from '@/utils/headerMatcher';
 
 export const adsDataProcessor = {
   processSheetData(rawData: string): ProcessedSheetData {
@@ -52,25 +55,8 @@ export const adsDataProcessor = {
   },
 
   mapRowToAd(headers: string[], values: string[]): AdsData | null {
-    const getValueByHeader = (headerPatterns: string[]): string => {
-      for (const pattern of headerPatterns) {
-        const index = headers.findIndex(h => 
-          h.toLowerCase().trim() === pattern.toLowerCase().trim() ||
-          h.toLowerCase().includes(pattern.toLowerCase()) ||
-          pattern.toLowerCase().includes(h.toLowerCase())
-        );
-        if (index !== -1) {
-          const value = values[index] || '';
-          console.log(`Trouvé "${pattern}": index=${index}, valeur="${value.substring(0, 50)}..."`);
-          return value;
-        }
-      }
-      console.log(`Aucun pattern trouvé pour:`, headerPatterns);
-      return '';
-    };
-
     // Extract ID with exact Google Sheets header
-    const adId = getValueByHeader([
+    const adId = headerMatcher.getValueByHeader(headers, values, [
       'ID de la publicité',
       'ID publicité', 
       'Ad ID',
@@ -83,19 +69,19 @@ export const adsDataProcessor = {
     }
 
     // Extract dates with exact Google Sheets headers
-    const startDateStr = getValueByHeader([
+    const startDateStr = headerMatcher.getValueByHeader(headers, values, [
       'Date de début de diffusion de la publicité',
       'Date de début',
       'Start Date'
     ]);
     
-    const endDateStr = getValueByHeader([
+    const endDateStr = headerMatcher.getValueByHeader(headers, values, [
       'Date de fin de diffusion de la publicité',
       'Date de fin',
       'End Date'
     ]);
     
-    const startDate = this.parseDate(startDateStr);
+    const startDate = dateParser.parseDate(startDateStr);
     
     // Si pas de date de début, on ne peut pas traiter
     if (!startDate) {
@@ -106,13 +92,13 @@ export const adsDataProcessor = {
     // Si pas de date de fin ou date de fin vide, c'est une campagne active -> date d'aujourd'hui
     let endDate: string;
     if (!endDateStr || endDateStr.trim() === '') {
-      endDate = new Date().toISOString().substring(0, 10);
+      endDate = dateParser.getCurrentDate();
       console.log('Date de fin manquante, campagne active détectée. Date de fin assignée:', endDate);
     } else {
-      const parsedEndDate = this.parseDate(endDateStr);
+      const parsedEndDate = dateParser.parseDate(endDateStr);
       if (!parsedEndDate) {
         // Si la date de fin est invalide, utiliser la date d'aujourd'hui
-        endDate = new Date().toISOString().substring(0, 10);
+        endDate = dateParser.getCurrentDate();
         console.log('Date de fin invalide, utilisation de la date d\'aujourd\'hui:', endDate);
       } else {
         endDate = parsedEndDate;
@@ -120,44 +106,44 @@ export const adsDataProcessor = {
     }
 
     // Extract other fields with exact headers
-    const audienceTotal = parseInt(getValueByHeader([
+    const audienceTotal = parseInt(headerMatcher.getValueByHeader(headers, values, [
       'Audience totale en Europe',
       'Audience Europe',
       'Total Audience'
     ])) || 0;
     
-    const linkTitle = getValueByHeader([
+    const linkTitle = headerMatcher.getValueByHeader(headers, values, [
       'Titre du lien de la publicité',
       'Titre du lien',
       'Link Title'
     ]);
     
-    const adBody = getValueByHeader([
+    const adBody = headerMatcher.getValueByHeader(headers, values, [
       'Corps de la publicité',
       'Ad Body',
       'Corps'
     ]);
     
-    const linkCaption = getValueByHeader([
+    const linkCaption = headerMatcher.getValueByHeader(headers, values, [
       'Légendes du lien de la publicité',
       'Link Caption',
       'Légendes'
     ]);
     
-    const linkDescription = getValueByHeader([
+    const linkDescription = headerMatcher.getValueByHeader(headers, values, [
       'Description du lien de la publicité',
       'Link Description',
       'Description'
     ]);
     
-    const snapshotUrl = getValueByHeader([
+    const snapshotUrl = headerMatcher.getValueByHeader(headers, values, [
       'URL de la snapshot de la publicité',
       'Snapshot URL',
       'URL snapshot'
     ]);
 
     // Extract brand intelligently
-    const brand = this.extractBrand(adBody, linkTitle, linkCaption);
+    const brand = brandExtractor.extractBrand(adBody, linkTitle, linkCaption);
     
     const daysActive = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)));
     
@@ -172,91 +158,21 @@ export const adsDataProcessor = {
       audience_eu_total: audienceTotal,
       start_date: startDate,
       end_date: endDate,
-      audience_fr_18_24_h: parseInt(getValueByHeader(['Audience FR 18-24 Homme'])) || 0,
-      audience_fr_18_24_f: parseInt(getValueByHeader(['Audience FR 18-24 Femme'])) || 0,
-      audience_fr_25_34_h: parseInt(getValueByHeader(['Audience FR 25-34 Homme'])) || 0,
-      audience_fr_25_34_f: parseInt(getValueByHeader(['Audience FR 25-34 Femme'])) || 0,
-      audience_fr_35_44_h: parseInt(getValueByHeader(['Audience FR 35-44 Homme'])) || 0,
-      audience_fr_35_44_f: parseInt(getValueByHeader(['Audience FR 35-44 Femme'])) || 0,
-      audience_fr_45_54_h: parseInt(getValueByHeader(['Audience FR 45-54 Homme'])) || 0,
-      audience_fr_45_54_f: parseInt(getValueByHeader(['Audience FR 45-54 Femme'])) || 0,
-      audience_fr_55_64_h: parseInt(getValueByHeader(['Audience FR 55-64 Homme'])) || 0,
-      audience_fr_55_64_f: parseInt(getValueByHeader(['Audience FR 55-64 Femme'])) || 0,
-      audience_fr_65_plus_h: parseInt(getValueByHeader(['Audience FR 65+ Homme'])) || 0,
-      audience_fr_65_plus_f: parseInt(getValueByHeader(['Audience FR 65+ Femme'])) || 0,
+      audience_fr_18_24_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 18-24 Homme'])) || 0,
+      audience_fr_18_24_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 18-24 Femme'])) || 0,
+      audience_fr_25_34_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 25-34 Homme'])) || 0,
+      audience_fr_25_34_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 25-34 Femme'])) || 0,
+      audience_fr_35_44_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 35-44 Homme'])) || 0,
+      audience_fr_35_44_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 35-44 Femme'])) || 0,
+      audience_fr_45_54_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 45-54 Homme'])) || 0,
+      audience_fr_45_54_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 45-54 Femme'])) || 0,
+      audience_fr_55_64_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 55-64 Homme'])) || 0,
+      audience_fr_55_64_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 55-64 Femme'])) || 0,
+      audience_fr_65_plus_h: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 65+ Homme'])) || 0,
+      audience_fr_65_plus_f: parseInt(headerMatcher.getValueByHeader(headers, values, ['Audience FR 65+ Femme'])) || 0,
       days_active: daysActive,
       budget_estimated: audienceTotal * 5, // CPM estimé à 5€
       start_month: new Date(startDate).toISOString().substring(0, 7)
     };
-  },
-
-  extractBrand(adBody: string, linkTitle: string, linkCaption: string): string {
-    const content = `${adBody} ${linkTitle} ${linkCaption}`.toLowerCase();
-    
-    // Liste des marques courantes à détecter
-    const knownBrands = [
-      'picard', 'carrefour', 'leclerc', 'auchan', 'intermarché', 'monoprix',
-      'franprix', 'casino', 'super u', 'système u', 'cora', 'match',
-      'mcdonalds', 'kfc', 'burger king', 'quick', 'dominos', 'pizza hut',
-      'nike', 'adidas', 'puma', 'decathlon', 'go sport',
-      'fnac', 'darty', 'boulanger', 'cdiscount', 'amazon', 'zalando',
-      'sncf', 'blablacar', 'uber', 'booking', 'airbnb',
-      'orange', 'sfr', 'bouygues', 'free', 'red',
-      'bmw', 'mercedes', 'audi', 'peugeot', 'renault', 'citroën',
-      'credit agricole', 'bnp paribas', 'societe generale', 'lcl', 'boursorama'
-    ];
-    
-    for (const brand of knownBrands) {
-      if (content.includes(brand)) {
-        return brand.charAt(0).toUpperCase() + brand.slice(1);
-      }
-    }
-    
-    // Si aucune marque connue, essayer d'extraire depuis l'URL ou le domaine
-    const urlMatch = content.match(/([a-zA-Z0-9-]+)\.(?:fr|com|org|net)/);
-    if (urlMatch) {
-      return urlMatch[1].charAt(0).toUpperCase() + urlMatch[1].slice(1);
-    }
-    
-    return 'Marque non identifiée';
-  },
-
-  parseDate(dateStr: string): string | null {
-    if (!dateStr || dateStr.trim() === '') {
-      console.log('Date vide détectée');
-      return null;
-    }
-    
-    const cleanDateStr = dateStr.trim();
-    
-    // Handle DD/MM/YYYY format
-    const ddmmyyyyMatch = cleanDateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (ddmmyyyyMatch) {
-      const [, day, month, year] = ddmmyyyyMatch;
-      const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      console.log(`Date DD/MM/YYYY convertie: ${cleanDateStr} -> ${formattedDate}`);
-      return formattedDate;
-    }
-    
-    // Handle YYYY-MM-DD format (already correct)
-    if (cleanDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      console.log(`Date YYYY-MM-DD validée: ${cleanDateStr}`);
-      return cleanDateStr;
-    }
-    
-    // Try to parse with JavaScript Date (with validation)
-    try {
-      const date = new Date(cleanDateStr);
-      if (!isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
-        const formattedDate = date.toISOString().substring(0, 10);
-        console.log(`Date JavaScript convertie: ${cleanDateStr} -> ${formattedDate}`);
-        return formattedDate;
-      }
-    } catch (error) {
-      console.log(`Erreur lors du parsing de la date: ${cleanDateStr}`, error);
-    }
-    
-    console.log(`Date non parsable: ${cleanDateStr}`);
-    return null;
   }
 };
