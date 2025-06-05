@@ -14,6 +14,19 @@ interface AdCardProps {
 }
 
 export const AdCard = ({ ad, showBrand = true }: AdCardProps) => {
+  // Log pour diagnostiquer le problème des URLs
+  console.log('AdCard - Données de la pub:', {
+    ad_id: ad.ad_id,
+    snapshot_url: ad.snapshot_url,
+    snapshot_url_length: ad.snapshot_url?.length,
+    has_url: !!ad.snapshot_url && ad.snapshot_url.trim() !== '',
+    start_date: ad.start_date
+  });
+
+  const hasValidUrl = ad.snapshot_url && 
+    ad.snapshot_url.trim() !== '' && 
+    ad.snapshot_url.startsWith('http');
+
   return (
     <Card className="mb-4">
       <CardContent className="pt-4">
@@ -21,7 +34,7 @@ export const AdCard = ({ ad, showBrand = true }: AdCardProps) => {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               {showBrand && <Badge variant="outline">{ad.brand}</Badge>}
-              {ad.snapshot_url && (
+              {hasValidUrl && (
                 <Button
                   variant="ghost"
                   size="sm"
