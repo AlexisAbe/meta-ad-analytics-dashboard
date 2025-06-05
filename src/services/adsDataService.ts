@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AdsData } from '@/types/ads';
 
@@ -69,20 +68,17 @@ export const adsDataService = {
       project_id: projectId || ad.project_id
     }));
 
-    // Utiliser upsert pour éviter les doublons
+    // Utiliser insert au lieu d'upsert pour permettre les doublons
     const { error } = await supabase
       .from('ads_data')
-      .upsert(adsWithProject, { 
-        onConflict: 'ad_id,brand',
-        ignoreDuplicates: false 
-      });
+      .insert(adsWithProject);
     
     if (error) {
-      console.error('Error upserting ads:', error);
+      console.error('Error inserting ads:', error);
       throw error;
     }
     
-    console.log(`Successfully upserted ${ads.length} ads`);
+    console.log(`Successfully inserted ${ads.length} ads (duplicates allowed)`);
   },
 
   async getBrands(projectId?: string): Promise<string[]> {

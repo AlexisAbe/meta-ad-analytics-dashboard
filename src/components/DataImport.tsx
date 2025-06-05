@@ -88,7 +88,7 @@ export const DataImport = ({ selectedProject }: DataImportProps) => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <strong>Projet sélectionné :</strong> {selectedProject.name}
             <br />
-            <strong>Note :</strong> Les données existantes seront automatiquement mises à jour si elles ont le même ID de publicité et la même marque.
+            <strong>Note :</strong> Les données seront ajoutées au projet. Les imports multiples sont autorisés, même pour les mêmes publicités.
           </div>
         )}
         

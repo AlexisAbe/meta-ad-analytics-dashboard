@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -142,6 +141,8 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
         {selectedProject && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <strong>Projet sélectionné :</strong> {selectedProject.name}
+            <br />
+            <strong>Note :</strong> Les données seront ajoutées au projet. Les imports multiples sont autorisés pour chaque marque.
           </div>
         )}
 
