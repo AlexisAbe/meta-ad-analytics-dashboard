@@ -18,6 +18,7 @@ export interface TopAd {
   start_date: string;
   end_date: string;
   rank: number;
+  snapshot_url?: string;
 }
 
 export interface TopAdsAnalysis {

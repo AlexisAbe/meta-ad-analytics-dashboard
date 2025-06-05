@@ -5,14 +5,19 @@ import { adsDataService } from '@/services/adsDataService';
 import { AdsData } from '@/types/ads';
 import { toast } from '@/hooks/use-toast';
 
-export const useAdsData = (selectedBrands: string[] = [], projectId?: string) => {
+export const useAdsData = (
+  selectedBrands: string[] = [], 
+  projectId?: string,
+  startDate?: Date,
+  endDate?: Date
+) => {
   const queryClient = useQueryClient();
   
   const { data: ads = [], isLoading, error } = useQuery({
-    queryKey: ['ads', selectedBrands, projectId],
+    queryKey: ['ads', selectedBrands, projectId, startDate, endDate],
     queryFn: () => selectedBrands.length > 0 
-      ? adsDataService.getAdsByBrands(selectedBrands, projectId)
-      : adsDataService.getAllAds(projectId),
+      ? adsDataService.getAdsByBrands(selectedBrands, projectId, startDate, endDate)
+      : adsDataService.getAllAds(projectId, startDate, endDate),
   });
 
   const { data: brands = [] } = useQuery({

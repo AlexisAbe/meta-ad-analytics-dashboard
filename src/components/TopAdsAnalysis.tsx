@@ -59,6 +59,17 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{ad.brand}</Badge>
               <Badge variant="secondary">#{ad.rank}</Badge>
+              {ad.snapshot_url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open(ad.snapshot_url, '_blank')}
+                  className="h-6 px-2 text-xs"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Voir pub
+                </Button>
+              )}
             </div>
             <h4 className="font-medium text-sm mb-1 line-clamp-2">
               {ad.link_title || ad.ad_id}

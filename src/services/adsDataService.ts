@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AdsData } from '@/types/ads';
 
 export const adsDataService = {
-  async getAllAds(projectId?: string): Promise<AdsData[]> {
+  async getAllAds(projectId?: string, startDate?: Date, endDate?: Date): Promise<AdsData[]> {
     let query = supabase
       .from('ads_data')
       .select('*')
@@ -11,6 +11,14 @@ export const adsDataService = {
     
     if (projectId) {
       query = query.eq('project_id', projectId);
+    }
+
+    if (startDate) {
+      query = query.gte('start_date', startDate.toISOString().split('T')[0]);
+    }
+
+    if (endDate) {
+      query = query.lte('start_date', endDate.toISOString().split('T')[0]);
     }
     
     const { data, error } = await query;
@@ -23,8 +31,8 @@ export const adsDataService = {
     return data || [];
   },
 
-  async getAdsByBrands(brands: string[], projectId?: string): Promise<AdsData[]> {
-    if (brands.length === 0) return this.getAllAds(projectId);
+  async getAdsByBrands(brands: string[], projectId?: string, startDate?: Date, endDate?: Date): Promise<AdsData[]> {
+    if (brands.length === 0) return this.getAllAds(projectId, startDate, endDate);
     
     let query = supabase
       .from('ads_data')
@@ -34,6 +42,14 @@ export const adsDataService = {
     
     if (projectId) {
       query = query.eq('project_id', projectId);
+    }
+
+    if (startDate) {
+      query = query.gte('start_date', startDate.toISOString().split('T')[0]);
+    }
+
+    if (endDate) {
+      query = query.lte('start_date', endDate.toISOString().split('T')[0]);
     }
     
     const { data, error } = await query;

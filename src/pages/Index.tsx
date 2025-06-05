@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, BarChart3 } from 'lucide-react';
+import { Download, FileText, BarChart3, Calendar } from 'lucide-react';
 import { DataImport } from '@/components/DataImport';
+import { BrandDataImport } from '@/components/BrandDataImport';
+import { DateFilter } from '@/components/DateFilter';
 import { KPIOverview } from '@/components/KPIOverview';
 import { SeasonHeatmap } from '@/components/SeasonHeatmap';
 import { BrandDrilldown } from '@/components/BrandDrilldown';
@@ -17,7 +19,9 @@ import { Project } from '@/types/projects';
 const Index = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
-  const { ads, brands, isLoading } = useAdsData(selectedBrands, selectedProject?.id);
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const { ads, brands, isLoading } = useAdsData(selectedBrands, selectedProject?.id, startDate, endDate);
 
   const handleBrandToggle = (brand: string) => {
     setSelectedBrands(prev => 
@@ -25,6 +29,11 @@ const Index = () => {
         ? prev.filter(b => b !== brand)
         : [...prev, brand].slice(0, 5) // Max 5 marques
     );
+  };
+
+  const handleDateChange = (newStartDate?: Date, newEndDate?: Date) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
   };
 
   const handleExportCSV = () => {
@@ -37,7 +46,7 @@ const Index = () => {
       return;
     }
 
-    const headers = ['ID', 'Marque', 'Titre', 'Reach EU', 'Date début', 'Date fin', 'Durée (jours)', 'Budget estimé'];
+    const headers = ['ID', 'Marque', 'Titre', 'Reach EU', 'Date début', 'Date fin', 'Durée (jours)', 'Budget estimé', 'Snapshot URL'];
     const csvData = [
       headers.join(','),
       ...ads.map(ad => [
@@ -48,7 +57,8 @@ const Index = () => {
         ad.start_date,
         ad.end_date,
         ad.days_active,
-        ad.budget_estimated
+        ad.budget_estimated,
+        ad.snapshot_url || ''
       ].join(','))
     ].join('\n');
 
@@ -106,10 +116,30 @@ const Index = () => {
 
         {/* Import de données */}
         <div className="mb-8">
-          <DataImport selectedProject={selectedProject} />
+          <Tabs defaultValue="simple" className="w-full">
+            <TabsList>
+              <TabsTrigger value="simple">Import simple</TabsTrigger>
+              <TabsTrigger value="brands">Import par marque</TabsTrigger>
+            </TabsList>
+            <TabsContent value="simple">
+              <DataImport selectedProject={selectedProject} />
+            </TabsContent>
+            <TabsContent value="brands">
+              <BrandDataImport selectedProject={selectedProject} />
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* Filtres */}
+        {/* Filtre de dates */}
+        <div className="mb-8">
+          <DateFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+          />
+        </div>
+
+        {/* Filtres par marques */}
         {brands.length > 0 && (
           <div className="mb-6">
             <BrandFilter
