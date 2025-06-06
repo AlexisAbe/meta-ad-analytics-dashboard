@@ -13,9 +13,10 @@ interface TopAdsMonthSectionProps {
     adsData: AdsData;
   })[]>;
   icon: React.ReactNode;
+  allAds?: AdsData[]; // Pour la comparaison démographique
 }
 
-export const TopAdsMonthSection = ({ month, brandAds, icon }: TopAdsMonthSectionProps) => {
+export const TopAdsMonthSection = ({ month, brandAds, icon, allAds = [] }: TopAdsMonthSectionProps) => {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -28,7 +29,11 @@ export const TopAdsMonthSection = ({ month, brandAds, icon }: TopAdsMonthSection
           <h4 className="font-medium text-base mb-3 text-gray-700">{brand}</h4>
           <div className="space-y-2">
             {ads.map((ad) => (
-              <TopAdCard key={`${ad.ad_id}-${ad.month}`} ad={ad} />
+              <TopAdCard 
+                key={`${ad.ad_id}-${ad.month}`} 
+                ad={ad} 
+                allAds={allAds}
+              />
             ))}
           </div>
         </div>

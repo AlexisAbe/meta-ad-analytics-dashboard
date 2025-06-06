@@ -15,9 +15,10 @@ interface TopAdsTabContentProps {
   })[];
   title: string;
   icon: React.ReactNode;
+  allAds?: AdsData[]; // Pour la comparaison démographique
 }
 
-export const TopAdsTabContent = ({ ads, title, icon }: TopAdsTabContentProps) => {
+export const TopAdsTabContent = ({ ads, title, icon, allAds = [] }: TopAdsTabContentProps) => {
   const groupAdsByMonth = (adsData: typeof ads) => {
     const grouped = adsData.reduce((acc, ad) => {
       const monthKey = format(new Date(ad.month), 'MMMM yyyy', { locale: fr });
@@ -47,7 +48,8 @@ export const TopAdsTabContent = ({ ads, title, icon }: TopAdsTabContentProps) =>
           key={month} 
           month={month} 
           brandAds={brandAds} 
-          icon={icon} 
+          icon={icon}
+          allAds={allAds}
         />
       ))}
     </div>
