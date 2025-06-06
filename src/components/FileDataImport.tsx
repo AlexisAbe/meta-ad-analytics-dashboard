@@ -1,45 +1,107 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, Download, AlertCircle, CheckCircle, XCircle, Clock, FileSpreadsheet, Copy } from 'lucide-react';
-import { intelligentParser } from '@/services/intelligentParser';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { fileParser, FileParseResult, ColumnMapping } from '@/services/fileParser';
+import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { useAdsData } from '@/hooks/useAdsData';
 import { toast } from '@/hooks/use-toast';
 import { Project } from '@/types/projects';
 import { AdRawData } from '@/types/adRawData';
 import { AdsData } from '@/types/ads';
-import { FileDataImport } from './FileDataImport';
 
-interface InteractiveDataImportProps {
+interface FileDataImportProps {
   selectedProject?: Project;
   forcedBrand?: string;
 }
 
-export const InteractiveDataImport = ({ selectedProject, forcedBrand }: InteractiveDataImportProps) => {
-  const [rawInput, setRawInput] = useState('');
+export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportProps) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileResult, setFileResult] = useState<FileParseResult | null>(null);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
   const [parsedData, setParsedData] = useState<AdRawData[]>([]);
   const [parseResult, setParseResult] = useState<any>(null);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const { insertAds, isInserting } = useAdsData([], selectedProject?.id);
 
-  // Parse automatiquement dès qu'on colle des données
-  useEffect(() => {
-    if (rawInput.trim()) {
-      const result = intelligentParser.parseRawInputToAdData(rawInput, forcedBrand);
-      setParseResult(result);
-      setParsedData(result.data);
-      setIsPreviewMode(true);
-    } else {
-      setIsPreviewMode(false);
-      setParsedData([]);
-      setParseResult(null);
+  const handleFileSelect = useCallback(async (file: File) => {
+    setSelectedFile(file);
+    setIsProcessing(true);
+    
+    try {
+      console.log('📁 Traitement du fichier:', file.name);
+      const result = await fileParser.parseFile(file);
+      setFileResult(result);
+      setColumnMapping(result.detectedColumns);
+      
+      if (result.errors.length > 0) {
+        toast({
+          title: "Attention",
+          description: `${result.errors.length} erreur(s) détectée(s) lors du parsing`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Succès",
+          description: `Fichier parsé avec succès (${result.totalRows} lignes)`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la lecture du fichier",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
-  }, [rawInput, forcedBrand]);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    const file = files[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) {
+      handleFileSelect(file);
+    } else {
+      toast({
+        title: "Format non supporté",
+        description: "Veuillez sélectionner un fichier .xlsx, .xls ou .csv",
+        variant: "destructive",
+      });
+    }
+  }, [handleFileSelect]);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const processDataWithMapping = () => {
+    if (!fileResult) return;
+
+    const result = fileParser.convertToAdData(fileResult.data, columnMapping, forcedBrand);
+    setParseResult(result);
+    setParsedData(result.data);
+    setShowMappingDialog(false);
+
+    toast({
+      title: "Mapping appliqué",
+      description: `${result.validLines} publicités valides détectées`,
+    });
+  };
 
   const handleImport = () => {
     if (!selectedProject) {
@@ -150,20 +212,20 @@ export const InteractiveDataImport = ({ selectedProject, forcedBrand }: Interact
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Import de données publicitaires
+            <FileSpreadsheet className="h-5 w-5" />
+            Import de fichier Excel/CSV (Recommandé)
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {!selectedProject && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800 flex items-center gap-2 mb-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800 flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span><strong>Attention :</strong> Sélectionnez un projet avant d'importer des données.</span>
             </div>
           )}
 
           {selectedProject && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
               <strong>Projet :</strong> {selectedProject.name}
               {forcedBrand && (
                 <>
@@ -174,97 +236,120 @@ export const InteractiveDataImport = ({ selectedProject, forcedBrand }: Interact
             </div>
           )}
 
-          <Tabs defaultValue="file" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="file" className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Import de fichier (Recommandé)
-              </TabsTrigger>
-              <TabsTrigger value="paste" className="flex items-center gap-2">
-                <Copy className="h-4 w-4" />
-                Copier-coller
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="file" className="mt-4">
-              <FileDataImport selectedProject={selectedProject} forcedBrand={forcedBrand} />
-            </TabsContent>
-            
-            <TabsContent value="paste" className="mt-4 space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                <AlertCircle className="h-4 w-4 inline mr-2" />
-                <strong>Attention :</strong> Le copier-coller peut causer des erreurs de décalage de colonnes. 
-                Privilégiez l'import de fichier pour plus de fiabilité.
+          {/* Zone de drop et sélection de fichier */}
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium mb-2">Déposez votre fichier ici</p>
+            <p className="text-sm text-gray-600 mb-4">ou cliquez pour sélectionner un fichier</p>
+            <Input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileInputChange}
+              className="max-w-xs mx-auto"
+              disabled={!selectedProject || isProcessing}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Formats supportés : .xlsx, .xls, .csv
+            </p>
+          </div>
+
+          {/* Statut du fichier */}
+          {selectedFile && (
+            <div className="bg-gray-50 border rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{selectedFile.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                {isProcessing && (
+                  <Badge variant="outline">Traitement...</Badge>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Résumé du parsing */}
+          {fileResult && !isProcessing && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  {fileResult.totalRows} lignes de données
+                </Badge>
+                <Badge variant="outline">
+                  {fileResult.headers.length} colonnes détectées
+                </Badge>
+                {fileResult.errors.length > 0 && (
+                  <Badge variant="destructive">
+                    {fileResult.errors.length} erreur(s)
+                  </Badge>
+                )}
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Données à importer (Excel/Google Sheets)
-                </label>
-                <Textarea
-                  placeholder="Collez ici vos données copiées depuis Excel ou Google Sheets (avec les en-têtes)..."
-                  value={rawInput}
-                  onChange={(e) => setRawInput(e.target.value)}
-                  rows={8}
-                  className="font-mono text-sm"
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setShowMappingDialog(true)}
                   disabled={!selectedProject}
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Les données sont analysées automatiquement dès le collage
-                </p>
+                >
+                  Configurer le mapping des colonnes
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Actions après mapping */}
+          {parseResult && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  Total: {parseResult.totalLines} lignes
+                </Badge>
+                <Badge variant="outline" className="text-green-600">
+                  Valides: {parseResult.validLines}
+                </Badge>
+                {parseResult.excludedLines > 0 && (
+                  <Badge variant="outline" className="text-red-600">
+                    Exclues: {parseResult.excludedLines}
+                  </Badge>
+                )}
+                {parseResult.incompleteLines > 0 && (
+                  <Badge variant="outline" className="text-orange-600">
+                    Incomplètes: {parseResult.incompleteLines}
+                  </Badge>
+                )}
               </div>
 
-              {/* Badges de statut global */}
-              {parseResult && (
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">
-                    Total: {parseResult.totalLines} lignes
-                  </Badge>
-                  <Badge variant="outline" className="text-green-600">
-                    Valides: {parseResult.validLines}
-                  </Badge>
-                  {parseResult.excludedLines > 0 && (
-                    <Badge variant="outline" className="text-red-600">
-                      Exclues: {parseResult.excludedLines}
-                    </Badge>
-                  )}
-                  {parseResult.incompleteLines > 0 && (
-                    <Badge variant="outline" className="text-orange-600">
-                      Incomplètes: {parseResult.incompleteLines}
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              {isPreviewMode && (
-                <div className="flex gap-2">
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleImport}
+                  disabled={!selectedProject || isInserting || parseResult?.validLines === 0}
+                  className="flex-1"
+                >
+                  {isInserting ? 'Import en cours...' : `Importer ${parseResult?.validLines || 0} publicités valides`}
+                </Button>
+                {parseResult?.excludedLines > 0 && (
                   <Button
-                    onClick={handleImport}
-                    disabled={!selectedProject || isInserting || parseResult?.validLines === 0}
-                    className="flex-1"
+                    variant="outline"
+                    onClick={handleExportExcluded}
+                    className="flex items-center gap-2"
                   >
-                    {isInserting ? 'Import en cours...' : `Importer ${parseResult?.validLines || 0} publicités valides`}
+                    <Download className="h-4 w-4" />
+                    Export exclues
                   </Button>
-                  {parseResult?.excludedLines > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={handleExportExcluded}
-                      className="flex items-center gap-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      Export exclues
-                    </Button>
-                  )}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Preview des données pour l'onglet copier-coller */}
-      {isPreviewMode && parsedData.length > 0 && (
+      {/* Preview des données */}
+      {parsedData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
@@ -337,27 +422,37 @@ export const InteractiveDataImport = ({ selectedProject, forcedBrand }: Interact
         </Card>
       )}
 
-      {/* Erreurs de parsing pour l'onglet copier-coller */}
-      {parseResult?.errors.length > 0 && (
+      {/* Erreurs de parsing */}
+      {fileResult?.errors.length > 0 && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="text-red-800 flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              Erreurs de parsing ({parseResult.errors.length})
+              Erreurs de parsing ({fileResult.errors.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="text-sm text-red-700 space-y-1">
-              {parseResult.errors.slice(0, 10).map((error, index) => (
+              {fileResult.errors.slice(0, 10).map((error, index) => (
                 <li key={index}>• {error}</li>
               ))}
-              {parseResult.errors.length > 10 && (
-                <li>... et {parseResult.errors.length - 10} autres erreurs</li>
+              {fileResult.errors.length > 10 && (
+                <li>... et {fileResult.errors.length - 10} autres erreurs</li>
               )}
             </ul>
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog de mapping */}
+      <ColumnMappingDialog
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        headers={fileResult?.headers || []}
+        mapping={columnMapping}
+        onMappingChange={setColumnMapping}
+        onConfirm={processDataWithMapping}
+      />
     </div>
   );
 };
