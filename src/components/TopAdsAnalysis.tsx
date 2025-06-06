@@ -1,14 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Clock, Users, Calendar, ExternalLink } from 'lucide-react';
+import { TrendingUp, Clock, Users, Calendar, ExternalLink, Info } from 'lucide-react';
 import { useTopAds } from '@/hooks/useProjects';
 import { TopAd } from '@/types/projects';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { budgetCalculator } from '@/services/budgetCalculator';
+import { AdsData } from '@/types/ads';
+import { BudgetCalculationTooltip } from './BudgetCalculationTooltip';
 
 interface TopAdsAnalysisProps {
   projectId?: string;
@@ -16,6 +19,49 @@ interface TopAdsAnalysisProps {
 
 export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
   const { topAdsByReach, topAdsByDuration, isLoading } = useTopAds(projectId);
+
+  // Fonction pour convertir TopAd en AdsData pour le calcul de budget
+  const convertTopAdToAdsData = (topAd: TopAd): AdsData => {
+    return {
+      ad_id: topAd.ad_id,
+      brand: topAd.brand,
+      audience_eu_total: topAd.reach,
+      start_date: topAd.start_date,
+      end_date: topAd.end_date,
+      link_title: topAd.link_title,
+      days_active: topAd.duration,
+      budget_estimated: topAd.budget_estimated || 0,
+      start_month: format(new Date(topAd.start_date), 'yyyy-MM'),
+      snapshot_url: topAd.snapshot_url,
+    };
+  };
+
+  // Calcul des budgets avec la nouvelle logique pour chaque liste
+  const topAdsByReachWithBudget = useMemo(() => {
+    return topAdsByReach.map(ad => {
+      const adsData = convertTopAdToAdsData(ad);
+      const calculation = budgetCalculator.calculateBudget(adsData);
+      return {
+        ...ad,
+        calculatedBudget: calculation.estimatedBudget,
+        budgetCalculation: calculation,
+        adsData
+      };
+    });
+  }, [topAdsByReach]);
+
+  const topAdsByDurationWithBudget = useMemo(() => {
+    return topAdsByDuration.map(ad => {
+      const adsData = convertTopAdToAdsData(ad);
+      const calculation = budgetCalculator.calculateBudget(adsData);
+      return {
+        ...ad,
+        calculatedBudget: calculation.estimatedBudget,
+        budgetCalculation: calculation,
+        adsData
+      };
+    });
+  }, [topAdsByDuration]);
 
   if (!projectId) {
     return (
@@ -51,20 +97,45 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
     );
   }
 
-  const AdCard = ({ ad }: { ad: TopAd }) => {
-    // Log pour diagnostiquer les problèmes
+  const AdCard = ({ ad }: { ad: typeof topAdsByReachWithBudget[0] }) => {
     console.log('TopAds AdCard - Données:', {
       ad_id: ad.ad_id,
       snapshot_url: ad.snapshot_url,
       start_date: ad.start_date,
       month: ad.month,
-      parsed_start_date: new Date(ad.start_date),
-      parsed_month: new Date(ad.month)
+      calculated_budget: ad.calculatedBudget,
+      original_budget: ad.budget_estimated,
+      cpm_source: ad.budgetCalculation?.cpmSource
     });
 
     const hasValidUrl = ad.snapshot_url && 
       ad.snapshot_url.trim() !== '' && 
       ad.snapshot_url.startsWith('http');
+
+    const formatDate = (dateString: string) => {
+      try {
+        return format(new Date(dateString), 'dd/MM/yyyy', { locale: fr });
+      } catch {
+        return dateString;
+      }
+    };
+
+    const getDateStatus = () => {
+      if (!ad.end_date) {
+        return { label: 'En cours', color: 'bg-green-100 text-green-800' };
+      }
+      
+      const endDate = new Date(ad.end_date);
+      const today = new Date();
+      
+      if (endDate >= today) {
+        return { label: 'Actif', color: 'bg-green-100 text-green-800' };
+      } else {
+        return { label: 'Terminé', color: 'bg-gray-100 text-gray-800' };
+      }
+    };
+
+    const dateStatus = getDateStatus();
 
     return (
       <Card className="mb-4">
@@ -74,6 +145,9 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline">{ad.brand}</Badge>
                 <Badge variant="secondary">#{ad.rank}</Badge>
+                <Badge className={`text-xs ${dateStatus.color}`}>
+                  {dateStatus.label}
+                </Badge>
                 {hasValidUrl && (
                   <Button
                     variant="ghost"
@@ -94,11 +168,35 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
               </h4>
             </div>
           </div>
+
+          {/* Affichage systématique des dates */}
+          <div className="mb-3 p-2 bg-gray-50 rounded text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-gray-500" />
+                <span className="text-gray-600">Début :</span>
+                <span className="font-medium">{formatDate(ad.start_date)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600">Fin :</span>
+                <span className="font-medium">
+                  {ad.end_date ? formatDate(ad.end_date) : 'Encore active'}
+                </span>
+              </div>
+            </div>
+          </div>
           
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-blue-500" />
-              <span>{ad.reach.toLocaleString()} reach</span>
+              <div className="flex flex-col">
+                <span>{ad.reach.toLocaleString()} reach</span>
+                {ad.budgetCalculation?.isValid && (
+                  <span className="text-xs text-gray-500">
+                    ~{ad.budgetCalculation.estimatedImpressions.toLocaleString()} impressions
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-green-500" />
@@ -110,7 +208,25 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
             </div>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-orange-500" />
-              <span>{ad.budget_estimated?.toLocaleString() || 'N/A'}€</span>
+              <div className="flex items-center gap-1">
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {ad.budgetCalculation?.isValid ? `${ad.calculatedBudget.toLocaleString()}€` : 'N/A'}
+                  </span>
+                  {ad.budgetCalculation?.isValid && (
+                    <span className="text-xs text-gray-500">
+                      CPM: {ad.budgetCalculation.appliedCpm}€
+                    </span>
+                  )}
+                </div>
+                {ad.budgetCalculation?.isValid && (
+                  <BudgetCalculationTooltip ad={ad.adsData} calculation={ad.budgetCalculation}>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Info className="h-3 w-3" />
+                    </Button>
+                  </BudgetCalculationTooltip>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -118,19 +234,19 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
     );
   };
 
-  const groupAdsByMonth = (ads: TopAd[]) => {
+  const groupAdsByMonth = (ads: typeof topAdsByReachWithBudget) => {
     const grouped = ads.reduce((acc, ad) => {
       const monthKey = format(new Date(ad.month), 'MMMM yyyy', { locale: fr });
       if (!acc[monthKey]) acc[monthKey] = {};
       if (!acc[monthKey][ad.brand]) acc[monthKey][ad.brand] = [];
       acc[monthKey][ad.brand].push(ad);
       return acc;
-    }, {} as Record<string, Record<string, TopAd[]>>);
+    }, {} as Record<string, Record<string, typeof topAdsByReachWithBudget>>);
     
     return grouped;
   };
 
-  const renderAnalysis = (ads: TopAd[], title: string, icon: React.ReactNode) => {
+  const renderAnalysis = (ads: typeof topAdsByReachWithBudget, title: string, icon: React.ReactNode) => {
     const groupedAds = groupAdsByMonth(ads);
     
     if (Object.keys(groupedAds).length === 0) {
@@ -174,7 +290,7 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
           Analyses des meilleures publicités
         </CardTitle>
         <CardDescription>
-          Top 10 des publicités par mois et par annonceur
+          Top 10 des publicités par mois et par annonceur (budgets recalculés avec CPM hiérarchique)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -191,11 +307,11 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
           </TabsList>
           
           <TabsContent value="reach" className="mt-6">
-            {renderAnalysis(topAdsByReach, "Publicités avec le plus grand reach", <Users className="h-5 w-5 text-blue-500" />)}
+            {renderAnalysis(topAdsByReachWithBudget, "Publicités avec le plus grand reach", <Users className="h-5 w-5 text-blue-500" />)}
           </TabsContent>
           
           <TabsContent value="duration" className="mt-6">
-            {renderAnalysis(topAdsByDuration, "Publicités avec la plus longue durée", <Clock className="h-5 w-5 text-green-500" />)}
+            {renderAnalysis(topAdsByDurationWithBudget, "Publicités avec la plus longue durée", <Clock className="h-5 w-5 text-green-500" />)}
           </TabsContent>
         </Tabs>
       </CardContent>
