@@ -18,6 +18,8 @@ class DemographicAnalyzer {
     const ageGroups = this.getAgeGroupFields();
     const breakdown: Partial<DemographicBreakdown> = {};
     const missingFields: string[] = [];
+    const availableAgeGroups: string[] = [];
+    const missingAgeGroups: string[] = [];
     let totalAudience = 0;
     let hasAnyData = false;
 
@@ -25,15 +27,15 @@ class DemographicAnalyzer {
     Object.entries(ageGroups).forEach(([ageGroup, fields]) => {
       let totalMen = 0;
       let totalWomen = 0;
-      let adsWithData = 0;
+      let hasGroupData = false;
 
       ads.forEach(ad => {
         const menValue = ad[fields.men as keyof AdsData] as number;
         const womenValue = ad[fields.women as keyof AdsData] as number;
 
-        if (menValue !== undefined && menValue !== null && !isNaN(menValue)) {
+        if (menValue !== undefined && menValue !== null && !isNaN(menValue) && menValue > 0) {
           totalMen += menValue;
-          adsWithData++;
+          hasGroupData = true;
           hasAnyData = true;
         } else {
           if (!missingFields.includes(fields.men)) {
@@ -41,8 +43,9 @@ class DemographicAnalyzer {
           }
         }
 
-        if (womenValue !== undefined && womenValue !== null && !isNaN(womenValue)) {
+        if (womenValue !== undefined && womenValue !== null && !isNaN(womenValue) && womenValue > 0) {
           totalWomen += womenValue;
+          hasGroupData = true;
           hasAnyData = true;
         } else {
           if (!missingFields.includes(fields.women)) {
@@ -54,19 +57,40 @@ class DemographicAnalyzer {
       const total = totalMen + totalWomen;
       totalAudience += total;
 
+      // Déterminer si cette tranche a des données utilisables
+      if (hasGroupData) {
+        availableAgeGroups.push(ageGroup);
+      } else {
+        missingAgeGroups.push(ageGroup);
+      }
+
       breakdown[ageGroup as keyof DemographicBreakdown] = {
         total,
         men: totalMen,
         women: totalWomen,
         percentage: 0, // Sera calculé après
-        overRepresented: false, // Sera calculé lors de la comparaison
+        overRepresented: false,
+        hasData: hasGroupData,
       };
     });
 
-    // Calculer les pourcentages
+    // Calculer les pourcentages uniquement sur les données disponibles
     Object.keys(breakdown).forEach(ageGroup => {
       const group = breakdown[ageGroup as keyof DemographicBreakdown]!;
       group.percentage = totalAudience > 0 ? (group.total / totalAudience) * 100 : 0;
+    });
+
+    // Calculer la complétude
+    const totalPossibleGroups = Object.keys(ageGroups).length;
+    const completeness = (availableAgeGroups.length / totalPossibleGroups) * 100;
+    const isUsable = availableAgeGroups.length >= 2; // Au moins 2 tranches pour être utilisable
+
+    console.log('📊 Analyse démographique:', {
+      totalAudience,
+      availableGroups: availableAgeGroups.length,
+      missingGroups: missingAgeGroups.length,
+      completeness: Math.round(completeness),
+      isUsable
     });
 
     return {
@@ -74,6 +98,10 @@ class DemographicAnalyzer {
       totalAudience,
       hasData: hasAnyData,
       missingFields: [...new Set(missingFields)],
+      availableAgeGroups,
+      missingAgeGroups,
+      completeness: Math.round(completeness),
+      isUsable,
     };
   }
 
@@ -90,9 +118,10 @@ class DemographicAnalyzer {
       const currentGroup = current[ageGroup as keyof DemographicBreakdown];
       const averageGroup = average[ageGroup as keyof DemographicBreakdown];
       
-      if (averageGroup.percentage > 0) {
+      // Ne comparer que si les deux groupes ont des données
+      if (currentGroup.hasData && averageGroup.hasData && averageGroup.percentage > 0) {
         const vsAverage = ((currentGroup.percentage - averageGroup.percentage) / averageGroup.percentage) * 100;
-        const overRepresented = vsAverage > 20; // Seuil de 20% au-dessus de la moyenne
+        const overRepresented = vsAverage > 20;
 
         comparedBreakdown[ageGroup as keyof DemographicBreakdown] = {
           ...currentGroup,
@@ -105,6 +134,9 @@ class DemographicAnalyzer {
         } else if (vsAverage < -20) {
           insights.push(`${ageGroup} ans sous-représenté (${Math.round(vsAverage)}%)`);
         }
+      } else {
+        // Garder les données originales si pas de comparaison possible
+        comparedBreakdown[ageGroup as keyof DemographicBreakdown] = currentGroup;
       }
     });
 

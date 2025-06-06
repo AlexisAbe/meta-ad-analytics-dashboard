@@ -14,6 +14,13 @@ export interface DemographicColumnMapping {
   audience_fr_65_plus_f: number | null;
 }
 
+interface FlexiblePattern {
+  regex: RegExp;
+  ageGroupMap: (matches: RegExpMatchArray) => string;
+  genderMap: (matches: RegExpMatchArray) => string;
+  description: string;
+}
+
 export const demographicColumnDetector = {
   detectDemographicColumns(headers: string[]): DemographicColumnMapping {
     const mapping: DemographicColumnMapping = {
@@ -31,6 +38,107 @@ export const demographicColumnDetector = {
       audience_fr_65_plus_f: null,
     };
 
+    // Patterns flexibles pour détecter différents formats
+    const flexiblePatterns: FlexiblePattern[] = [
+      {
+        // Format principal : "Audience FR 25-34 Homme"
+        regex: /Audience\s*(FR|France)\s*(\d{2})[-_\s](\d{2})\s*(Homme|Femme)/i,
+        ageGroupMap: (matches) => `${matches[2]}_${matches[3]}`,
+        genderMap: (matches) => matches[4].toLowerCase().startsWith('h') ? 'h' : 'f',
+        description: 'Format Audience FR XX-XX Genre'
+      },
+      {
+        // Format avec + : "Audience FR 65+ Femme"
+        regex: /Audience\s*(FR|France)\s*(\d{2})\+\s*(Homme|Femme)/i,
+        ageGroupMap: (matches) => `${matches[2]}_plus`,
+        genderMap: (matches) => matches[3].toLowerCase().startsWith('h') ? 'h' : 'f',
+        description: 'Format Audience FR XX+ Genre'
+      },
+      {
+        // Format underscore : "FR_25_34_Male"
+        regex: /(FR|France)[-_](\d{2})[-_](\d{2})[-_](Male|Female|Homme|Femme|H|F|M)/i,
+        ageGroupMap: (matches) => `${matches[2]}_${matches[3]}`,
+        genderMap: (matches) => {
+          const gender = matches[4].toLowerCase();
+          return (gender.startsWith('h') || gender.startsWith('m')) ? 'h' : 'f';
+        },
+        description: 'Format FR_XX_XX_Genre'
+      },
+      {
+        // Format underscore avec + : "FR_65_plus_Female"
+        regex: /(FR|France)[-_](\d{2})[-_](plus|PLUS|\+)[-_](Male|Female|Homme|Femme|H|F|M)/i,
+        ageGroupMap: (matches) => `${matches[2]}_plus`,
+        genderMap: (matches) => {
+          const gender = matches[4].toLowerCase();
+          return (gender.startsWith('h') || gender.startsWith('m')) ? 'h' : 'f';
+        },
+        description: 'Format FR_XX_plus_Genre'
+      },
+      {
+        // Format simple : "25-34 H" ou "35-44 F"
+        regex: /(\d{2})[-_\s](\d{2})\s*(H|F|Homme|Femme|Male|Female)/i,
+        ageGroupMap: (matches) => `${matches[1]}_${matches[2]}`,
+        genderMap: (matches) => {
+          const gender = matches[3].toLowerCase();
+          return (gender.startsWith('h') || gender.startsWith('m')) ? 'h' : 'f';
+        },
+        description: 'Format XX-XX Genre'
+      },
+      {
+        // Format simple avec + : "65+ F"
+        regex: /(\d{2})\+\s*(H|F|Homme|Femme|Male|Female)/i,
+        ageGroupMap: (matches) => `${matches[1]}_plus`,
+        genderMap: (matches) => {
+          const gender = matches[2].toLowerCase();
+          return (gender.startsWith('h') || gender.startsWith('m')) ? 'h' : 'f';
+        },
+        description: 'Format XX+ Genre'
+      }
+    ];
+
+    console.log('🔍 Début détection démographique flexible sur', headers.length, 'colonnes');
+
+    headers.forEach((header, index) => {
+      const normalizedHeader = header.trim();
+      
+      // Essayer chaque pattern flexible
+      for (const pattern of flexiblePatterns) {
+        const matches = normalizedHeader.match(pattern.regex);
+        if (matches) {
+          const ageGroup = pattern.ageGroupMap(matches);
+          const gender = pattern.genderMap(matches);
+          
+          // Construire la clé standardisée
+          const fieldKey = `audience_fr_${ageGroup}_${gender}` as keyof DemographicColumnMapping;
+          
+          // Vérifier que la clé existe dans notre mapping
+          if (fieldKey in mapping && mapping[fieldKey] === null) {
+            mapping[fieldKey] = index;
+            console.log(`🎯 Colonne démographique détectée: "${header}" -> ${fieldKey} (${pattern.description})`);
+          } else if (fieldKey in mapping) {
+            console.log(`⚠️ Colonne démographique déjà mappée: "${header}" -> ${fieldKey}`);
+          } else {
+            console.log(`❌ Clé inconnue générée: "${header}" -> ${fieldKey}`);
+          }
+          break; // Arrêter dès qu'un pattern correspond
+        }
+      }
+    });
+
+    // Fallback vers l'ancienne méthode pour les formats standards
+    this.detectWithLegacyMethod(headers, mapping);
+
+    const detectedCount = Object.values(mapping).filter(v => v !== null).length;
+    console.log('📊 Détection terminée:', {
+      totalHeaders: headers.length,
+      demographicColumnsFound: detectedCount,
+      availableAgeGroups: this.getAvailableAgeGroups(mapping)
+    });
+
+    return mapping;
+  },
+
+  detectWithLegacyMethod(headers: string[], mapping: DemographicColumnMapping): void {
     const ageGroups = [
       { key: '18_24', patterns: ['18-24', '18_24', '18 24'] },
       { key: '25_34', patterns: ['25-34', '25_34', '25 34'] },
@@ -50,33 +158,36 @@ export const demographicColumnDetector = {
       
       ageGroups.forEach(({ key, patterns }) => {
         patterns.forEach(agePattern => {
-          // Chercher le pattern d'âge dans le header
           if (normalizedHeader.includes(agePattern.toLowerCase())) {
-            // Déterminer le genre
             let gender: 'h' | 'f' | null = null;
             
-            // Chercher les patterns masculins
             if (genderPatterns.male.some(pattern => normalizedHeader.includes(pattern.toLowerCase()))) {
               gender = 'h';
-            }
-            // Chercher les patterns féminins
-            else if (genderPatterns.female.some(pattern => normalizedHeader.includes(pattern.toLowerCase()))) {
+            } else if (genderPatterns.female.some(pattern => normalizedHeader.includes(pattern.toLowerCase()))) {
               gender = 'f';
             }
             
             if (gender) {
               const fieldKey = `audience_fr_${key}_${gender}` as keyof DemographicColumnMapping;
-              if (mapping[fieldKey] === null) { // Première correspondance trouvée
+              if (mapping[fieldKey] === null) {
                 mapping[fieldKey] = index;
-                console.log(`🎯 Colonne démographique détectée: ${header} -> ${fieldKey}`);
+                console.log(`🎯 Colonne démographique détectée (legacy): ${header} -> ${fieldKey}`);
               }
             }
           }
         });
       });
     });
+  },
 
-    return mapping;
+  getAvailableAgeGroups(mapping: DemographicColumnMapping): string[] {
+    const ageGroups = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+    return ageGroups.filter(ageGroup => {
+      const key = ageGroup.replace('-', '_').replace('+', '_plus');
+      const maleKey = `audience_fr_${key}_h` as keyof DemographicColumnMapping;
+      const femaleKey = `audience_fr_${key}_f` as keyof DemographicColumnMapping;
+      return mapping[maleKey] !== null || mapping[femaleKey] !== null;
+    });
   },
 
   getDemographicFieldLabels(): Record<keyof DemographicColumnMapping, string> {
@@ -98,13 +209,12 @@ export const demographicColumnDetector = {
 
   getExpectedColumnExamples(): string[] {
     return [
-      'audience_fr_18_24_h ou "18-24 homme"',
-      'audience_fr_18_24_f ou "18-24 femme"',
-      'audience_fr_25_34_h ou "25-34 H"',
-      'audience_fr_25_34_f ou "25-34 F"',
-      'audience_fr_35_44_h ou "35-44 men"',
-      'audience_fr_35_44_f ou "35-44 women"',
-      '... et ainsi de suite pour toutes les tranches d\'âge'
+      'Audience FR 18-24 Homme/Femme',
+      'Audience FR 25-34 H/F',
+      'FR_35_44_Male/Female',
+      '45-54 Homme/Femme',
+      '65+ H/F',
+      '... formats flexibles supportés'
     ];
   }
 };

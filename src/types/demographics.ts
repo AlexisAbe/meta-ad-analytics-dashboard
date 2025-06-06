@@ -15,6 +15,7 @@ export interface AgeGroupData {
   percentage: number;
   overRepresented: boolean;
   vsAverage?: number; // Pourcentage d'écart vs moyenne
+  hasData: boolean; // Nouvelle propriété pour indiquer si des données existent
 }
 
 export interface DemographicData {
@@ -22,6 +23,11 @@ export interface DemographicData {
   totalAudience: number;
   hasData: boolean;
   missingFields: string[];
+  // Nouvelles propriétés pour la gestion des données partielles
+  availableAgeGroups: string[];
+  missingAgeGroups: string[];
+  completeness: number; // Pourcentage de tranches présentes (0-100)
+  isUsable: boolean; // true si au moins 2 tranches disponibles
 }
 
 export interface ComparisonData {

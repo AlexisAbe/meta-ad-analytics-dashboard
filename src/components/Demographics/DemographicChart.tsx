@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingUp, TrendingDown } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, Info, AlertCircle } from 'lucide-react';
 import { DemographicData, ComparisonData, AgeGroupData } from '@/types/demographics';
 
 interface DemographicChartProps {
@@ -32,8 +32,33 @@ export const DemographicChart = ({
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>Données démographiques non disponibles</p>
             <p className="text-sm mt-1">
-              Champs manquants : {data.missingFields.slice(0, 3).join(', ')}
-              {data.missingFields.length > 3 && '...'}
+              Formats supportés : "Audience FR 25-34 Homme", "FR_35_44_Female", "45-54 H"...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Afficher un message si les données ne sont pas utilisables (moins de 2 tranches)
+  if (!data.isUsable) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-orange-400" />
+            <p className="text-gray-600">Données démographiques insuffisantes pour l'analyse</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Seulement {data.availableAgeGroups.length} tranche(s) d'âge détectée(s) sur 6
+            </p>
+            <p className="text-sm text-gray-500">
+              Au moins 2 tranches sont nécessaires pour afficher l'analyse
             </p>
           </div>
         </CardContent>
@@ -44,6 +69,11 @@ export const DemographicChart = ({
   const breakdown = showComparison && comparison ? comparison.current : data.breakdown;
 
   const renderAgeGroup = (ageGroup: string, groupData: AgeGroupData) => {
+    // Masquer les tranches sans données
+    if (!groupData.hasData || groupData.total === 0) {
+      return null;
+    }
+
     const menPercentage = groupData.total > 0 ? (groupData.men / groupData.total) * 100 : 0;
     const womenPercentage = 100 - menPercentage;
 
@@ -121,6 +151,11 @@ export const DemographicChart = ({
     );
   };
 
+  // Filtrer pour n'afficher que les tranches avec des données
+  const visibleAgeGroups = Object.entries(breakdown).filter(([_, groupData]) => 
+    groupData.hasData && groupData.total > 0
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -143,10 +178,38 @@ export const DemographicChart = ({
             </div>
           </div>
         </div>
+        
+        {/* Indicateur de complétude des données */}
+        <div className="flex items-center gap-2 mt-2">
+          <Badge variant="outline" className="text-xs">
+            {data.availableAgeGroups.length}/6 tranches disponibles ({data.completeness}%)
+          </Badge>
+          {data.completeness < 100 && (
+            <Badge variant="secondary" className="text-xs text-orange-700 bg-orange-100">
+              <Info className="h-3 w-3 mr-1" />
+              Données partielles
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {Object.entries(breakdown).map(([ageGroup, groupData]) => 
+        {visibleAgeGroups.map(([ageGroup, groupData]) => 
           renderAgeGroup(ageGroup, groupData)
+        )}
+        
+        {/* Message informatif pour les tranches manquantes */}
+        {data.missingAgeGroups.length > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Certaines tranches d'âge sont absentes car non ciblées dans cette campagne.</p>
+                <p className="text-xs text-blue-700">
+                  Tranches manquantes : {data.missingAgeGroups.join(', ')}
+                </p>
+              </div>
+            </div>
+          </div>
         )}
         
         {/* Insights de comparaison */}
