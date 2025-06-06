@@ -73,7 +73,7 @@ export const fileParser = {
   async parseCsvFile(file: File): Promise<FileParseResult> {
     return new Promise((resolve) => {
       Papa.parse(file, {
-        complete: (results) => {
+        complete: (results: Papa.ParseResult<string[]>) => {
           try {
             const data = results.data as string[][];
             const result = this.processRawData(data);
@@ -89,7 +89,7 @@ export const fileParser = {
             });
           }
         },
-        error: (error) => {
+        error: (error: Papa.ParseError) => {
           resolve({
             data: [],
             headers: [],
