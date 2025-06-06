@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, Clock, Users } from 'lucide-react';
+import { format } from 'date-fns';
 import { useTopAds } from '@/hooks/useProjects';
 import { TopAd } from '@/types/projects';
 import { budgetCalculator } from '@/services/budgetCalculator';
