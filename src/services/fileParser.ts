@@ -99,7 +99,7 @@ export const fileParser = {
         },
         header: false,
         skipEmptyLines: true
-      } as Papa.ParseConfig);
+      });
     });
   },
 
