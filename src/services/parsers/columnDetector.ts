@@ -1,11 +1,15 @@
 
+import { demographicColumnDetector, DemographicColumnMapping } from './demographicColumnDetector';
+
 export interface ColumnMapping {
   [key: string]: number | null;
 }
 
+export interface ExtendedColumnMapping extends ColumnMapping, DemographicColumnMapping {}
+
 export const columnDetector = {
-  detectColumns(headers: string[]): Record<string, number | null> {
-    const mapping: Record<string, number | null> = {
+  detectColumns(headers: string[]): ExtendedColumnMapping {
+    const mapping: ColumnMapping = {
       ad_id: null,
       snapshot_url: null,
       body: null,
@@ -44,6 +48,14 @@ export const columnDetector = {
       mapping[field] = index !== -1 ? index : null;
     });
 
-    return mapping;
+    // Ajouter la détection des colonnes démographiques
+    const demographicMapping = demographicColumnDetector.detectDemographicColumns(headers);
+    
+    console.log('🔍 Détection démographique:', {
+      totalHeaders: headers.length,
+      demographicColumnsFound: Object.values(demographicMapping).filter(v => v !== null).length
+    });
+
+    return { ...mapping, ...demographicMapping };
   }
 };
