@@ -1,7 +1,7 @@
 
 import * as XLSX from 'xlsx';
 import { FileParseResult } from '../fileParser';
-import { parseDate } from '@/utils/dateParser';
+import { dateParser } from '@/utils/dateParser';
 
 export const excelParser = {
   async parseExcelFile(file: File): Promise<FileParseResult> {
@@ -77,7 +77,7 @@ export const excelParser = {
       
       return row.map(cell => {
         if (typeof cell === 'string' && cell.trim()) {
-          const parsed = parseDate(cell);
+          const parsed = dateParser.parseDate(cell);
           return parsed || cell;
         }
         return cell;
