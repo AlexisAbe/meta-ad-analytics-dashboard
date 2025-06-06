@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, X, ExternalLink, Calendar } from 'lucide-react';
+import { Users, X, ExternalLink, Calendar, Info, AlertCircle } from 'lucide-react';
 import { AdsData } from '@/types/ads';
 import { DemographicChart } from './DemographicChart';
 import { demographicAnalyzer } from '@/services/demographicAnalyzer';
@@ -31,11 +31,14 @@ export const AudienceModal = ({
   allAds = [], 
   showComparison = false 
 }: AudienceModalProps) => {
+  // État local pour le toggle de comparaison
+  const [showComparisonLocal, setShowComparisonLocal] = useState(showComparison);
+
   // Calculer les données démographiques pour cette publicité
   const adDemographics = demographicAnalyzer.calculateDemographicBreakdown([ad]);
   
   // Calculer la moyenne globale si demandée
-  const comparison = showComparison && allAds.length > 0 
+  const comparison = showComparisonLocal && allAds.length > 0 
     ? demographicAnalyzer.compareToAverage(
         adDemographics.breakdown,
         demographicAnalyzer.calculateGlobalAverage(allAds)
@@ -53,6 +56,10 @@ export const AudienceModal = ({
       return dateString;
     }
   };
+
+  // Gestion des cas edge : vraiment aucune donnée utilisable
+  const showEdgeHelp = adDemographics.hasData && !adDemographics.isUsable;
+  const showNoDataMessage = !adDemographics.hasData;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -111,36 +118,96 @@ export const AudienceModal = ({
               <span>{ad.audience_eu_total.toLocaleString()} reach EU</span>
             </div>
           </div>
+
+          {/* Indicateurs de complétude */}
+          {adDemographics.hasData && (
+            <div className="flex items-center gap-2 mt-3">
+              <Badge variant="outline" className="text-xs">
+                {adDemographics.availableAgeGroups.length}/6 tranches disponibles ({adDemographics.completeness}%)
+              </Badge>
+              {adDemographics.completeness < 100 && (
+                <Badge variant="secondary" className="text-xs text-orange-700 bg-orange-100">
+                  <Info className="h-3 w-3 mr-1" />
+                  Données partielles
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Options de vue */}
-        {allAds.length > 0 && (
+        {/* Message d'aide pour les cas edge */}
+        {showNoDataMessage && (
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <h4 className="font-medium text-gray-700 mb-2">Données démographiques non disponibles</h4>
+            <p className="text-sm text-gray-500 mb-4">
+              Cette publicité ne contient pas d'informations démographiques exploitables.
+            </p>
+            <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
+              <p className="font-medium mb-1">Formats supportés :</p>
+              <p>"Audience FR 25-34 Homme", "FR_35_44_Female", "45-54 H"...</p>
+            </div>
+          </div>
+        )}
+
+        {showEdgeHelp && (
+          <div className="text-center py-6">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-orange-400" />
+            <h4 className="font-medium text-orange-700 mb-2">Données démographiques insuffisantes</h4>
+            <p className="text-sm text-gray-600 mb-2">
+              Seulement {adDemographics.availableAgeGroups.length} tranche(s) d'âge détectée(s)
+            </p>
+            <p className="text-xs text-gray-500">
+              Au moins 2 tranches sont nécessaires pour afficher l'analyse complète
+            </p>
+          </div>
+        )}
+
+        {/* Options de vue - seulement si on a des données utilisables et des données de comparaison */}
+        {adDemographics.isUsable && allAds.length > 0 && (
           <div className="flex items-center gap-2 mb-4">
             <span className="text-sm text-gray-600">Affichage :</span>
             <Button
-              variant={!showComparison ? "default" : "outline"}
+              variant={!showComparisonLocal ? "default" : "outline"}
               size="sm"
-              onClick={() => {/* Toggle comparison - à implémenter */}}
+              onClick={() => setShowComparisonLocal(false)}
             >
               Vue simple
             </Button>
             <Button
-              variant={showComparison ? "default" : "outline"}
+              variant={showComparisonLocal ? "default" : "outline"}
               size="sm"
-              onClick={() => {/* Toggle comparison - à implémenter */}}
+              onClick={() => setShowComparisonLocal(true)}
             >
               vs Moyenne globale
             </Button>
           </div>
         )}
 
-        {/* Graphique démographique */}
-        <DemographicChart
-          data={adDemographics}
-          comparison={comparison}
-          showComparison={showComparison}
-          title="Répartition d'audience (France)"
-        />
+        {/* Graphique démographique - seulement si les données sont utilisables */}
+        {adDemographics.isUsable && (
+          <DemographicChart
+            data={adDemographics}
+            comparison={comparison}
+            showComparison={showComparisonLocal}
+            title="Répartition démographique (France)"
+          />
+        )}
+
+        {/* Message informatif si des tranches sont manquantes mais qu'on a des données */}
+        {adDemographics.isUsable && adDemographics.missingAgeGroups.length > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Cette campagne ne cible pas toutes les tranches d'âge.</p>
+                <p className="text-xs text-blue-700">
+                  Tranches absentes : {adDemographics.missingAgeGroups.join(', ')} ans
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
