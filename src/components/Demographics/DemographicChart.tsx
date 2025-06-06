@@ -2,8 +2,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown } from 'lucide-react';
 import { DemographicData, ComparisonData, AgeGroupData } from '@/types/demographics';
+import { DemographicBadge } from './DemographicBadge';
+import { demographicUtils } from '@/utils/demographicUtils';
 
 interface DemographicChartProps {
   data: DemographicData;
@@ -18,6 +20,8 @@ export const DemographicChart = ({
   showComparison = false,
   title = "Répartition Démographique"
 }: DemographicChartProps) => {
+  const messages = demographicUtils.getMessages();
+  
   if (!data.hasData) {
     return (
       <Card>
@@ -30,10 +34,8 @@ export const DemographicChart = ({
         <CardContent>
           <div className="text-center py-8 text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>Données démographiques non disponibles</p>
-            <p className="text-sm mt-1">
-              Formats supportés : "Audience FR 25-34 Homme", "FR_35_44_Female", "45-54 H"...
-            </p>
+            <p>{messages.noDataTitle}</p>
+            <p className="text-sm mt-1">{messages.noDataHelp}</p>
           </div>
         </CardContent>
       </Card>
@@ -41,6 +43,25 @@ export const DemographicChart = ({
   }
 
   const breakdown = showComparison && comparison ? comparison.current : data.breakdown;
+  const demographicDisplay = demographicUtils.calculateDisplayData([{ 
+    ad_id: 'temp', 
+    brand: 'temp', 
+    audience_eu_total: data.totalAudience, 
+    start_date: '', 
+    end_date: '', 
+    days_active: 0, 
+    budget_estimated: 0, 
+    start_month: '',
+    ...Object.fromEntries(
+      Object.entries(breakdown).flatMap(([ageGroup, groupData]) => {
+        const key = ageGroup.replace('-', '_').replace('+', '_plus');
+        return [
+          [`audience_fr_${key}_h`, groupData.men],
+          [`audience_fr_${key}_f`, groupData.women]
+        ];
+      })
+    )
+  } as any]);
 
   const renderAgeGroup = (ageGroup: string, groupData: AgeGroupData) => {
     // Masquer les tranches sans données
@@ -153,17 +174,12 @@ export const DemographicChart = ({
           </div>
         </div>
         
-        {/* Indicateur de complétude des données */}
+        {/* Badge de complétude utilisant le nouveau composant */}
         <div className="flex items-center gap-2 mt-2">
           <Badge variant="outline" className="text-xs">
             {data.availableAgeGroups.length}/6 tranches disponibles ({data.completeness}%)
           </Badge>
-          {data.completeness < 100 && (
-            <Badge variant="secondary" className="text-xs text-orange-700 bg-orange-100">
-              <Info className="h-3 w-3 mr-1" />
-              Données partielles
-            </Badge>
-          )}
+          <DemographicBadge data={demographicDisplay} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -174,14 +190,11 @@ export const DemographicChart = ({
         {/* Message informatif pour les tranches manquantes */}
         {data.completeness < 100 && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Certaines tranches d'âge ne sont pas renseignées dans cette publicité.</p>
-                <p className="text-xs text-blue-700">
-                  Tranches disponibles : {data.availableAgeGroups.join(', ')} ans
-                </p>
-              </div>
+            <div className="text-sm text-blue-800">
+              <p>{messages.partialDataInfo}</p>
+              <p className="text-xs text-blue-700 mt-1">
+                {messages.partialDataDetail(data.availableAgeGroups, data.completeness)}
+              </p>
             </div>
           </div>
         )}

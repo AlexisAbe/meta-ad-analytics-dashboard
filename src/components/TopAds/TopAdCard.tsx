@@ -11,7 +11,8 @@ import { BudgetCalculation } from '@/types/budget';
 import { AdsData } from '@/types/ads';
 import { BudgetCalculationTooltip } from '../BudgetCalculationTooltip';
 import { AudienceModal } from '../Demographics/AudienceModal';
-import { demographicAnalyzer } from '@/services/demographicAnalyzer';
+import { DemographicBadge } from '../Demographics/DemographicBadge';
+import { demographicUtils } from '@/utils/demographicUtils';
 
 interface TopAdCardProps {
   ad: TopAd & {
@@ -19,27 +20,22 @@ interface TopAdCardProps {
     budgetCalculation: BudgetCalculation;
     adsData: AdsData;
   };
-  allAds?: AdsData[]; // Pour la comparaison dans la modal
+  allAds?: AdsData[];
 }
 
 export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
   const [showAudienceModal, setShowAudienceModal] = useState(false);
 
-  // Pré-calculer les données démographiques pour cette publicité
-  const adDemographics = demographicAnalyzer.calculateDemographicBreakdown([ad.adsData]);
+  // Utiliser le nouvel utilitaire pour calculer les données démographiques
+  const demographicDisplay = demographicUtils.calculateDisplayData([ad.adsData]);
 
-  console.log('TopAds AdCard - Données démographiques:', {
+  console.log('TopAdCard - Données démographiques calculées:', {
     ad_id: ad.ad_id,
-    hasData: adDemographics.hasData,
-    completeness: adDemographics.completeness,
-    availableAgeGroups: adDemographics.availableAgeGroups.length,
-    isUsable: adDemographics.isUsable,
-    snapshot_url: ad.snapshot_url,
-    start_date: ad.start_date,
-    month: ad.month,
-    calculated_budget: ad.calculatedBudget,
-    original_budget: ad.budget_estimated,
-    cpm_source: ad.budgetCalculation?.cpmSource
+    hasData: demographicDisplay.hasData,
+    completeness: demographicDisplay.completeness,
+    showButton: demographicDisplay.showAudienceButton,
+    badgeVariant: demographicDisplay.badgeVariant,
+    availableGroups: demographicDisplay.availableAgeGroups
   });
 
   const hasValidUrl = ad.snapshot_url && 
@@ -71,27 +67,6 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
 
   const dateStatus = getDateStatus();
 
-  // Fonction pour obtenir le badge de complétude démographique
-  const getDemographicBadge = () => {
-    if (!adDemographics.hasData) {
-      return null; // Aucun badge si pas de données
-    }
-    
-    if (adDemographics.completeness === 100) {
-      return (
-        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-          Données complètes
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-          Données partielles
-        </Badge>
-      );
-    }
-  };
-
   return (
     <>
       <Card className="mb-4">
@@ -104,7 +79,10 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
                 <Badge className={`text-xs ${dateStatus.color}`}>
                   {dateStatus.label}
                 </Badge>
-                {getDemographicBadge()}
+                
+                {/* Badge démographique utilisant le nouveau composant */}
+                <DemographicBadge data={demographicDisplay} />
+                
                 {hasValidUrl && (
                   <Button
                     variant="ghost"
@@ -116,8 +94,9 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
                     Voir pub
                   </Button>
                 )}
-                {/* Afficher le bouton "Voir l'audience" si on a des données démographiques */}
-                {adDemographics.hasData && (
+                
+                {/* Bouton "Voir l'audience" affiché dès que hasData === true */}
+                {demographicDisplay.showAudienceButton && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -129,6 +108,7 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
                     Voir l'audience
                   </Button>
                 )}
+                
                 {!hasValidUrl && (
                   <span className="text-xs text-gray-400">Pas d'URL</span>
                 )}

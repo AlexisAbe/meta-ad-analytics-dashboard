@@ -17,6 +17,22 @@ interface TopAdsAnalysisProps {
 export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
   const { topAdsByReach, topAdsByDuration, isLoading } = useTopAds(projectId);
 
+  console.log('🔍 TopAdsAnalysis - Données reçues:', {
+    projectId,
+    topAdsByReach: topAdsByReach.length,
+    topAdsByDuration: topAdsByDuration.length,
+    sampleReachAd: topAdsByReach[0] ? {
+      ad_id: topAdsByReach[0].ad_id,
+      reach: topAdsByReach[0].reach,
+      duration: topAdsByReach[0].duration
+    } : null,
+    sampleDurationAd: topAdsByDuration[0] ? {
+      ad_id: topAdsByDuration[0].ad_id,
+      reach: topAdsByDuration[0].reach,
+      duration: topAdsByDuration[0].duration
+    } : null
+  });
+
   // Fonction pour convertir TopAd en AdsData pour le calcul de budget
   const convertTopAdToAdsData = (topAd: TopAd): AdsData => {
     return {
@@ -30,12 +46,25 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
       budget_estimated: topAd.budget_estimated || 0,
       start_month: format(new Date(topAd.start_date), 'yyyy-MM'),
       snapshot_url: topAd.snapshot_url,
+      // Ajouter les champs démographiques s'ils existent dans TopAd
+      audience_fr_18_24_h: (topAd as any).audience_fr_18_24_h,
+      audience_fr_18_24_f: (topAd as any).audience_fr_18_24_f,
+      audience_fr_25_34_h: (topAd as any).audience_fr_25_34_h,
+      audience_fr_25_34_f: (topAd as any).audience_fr_25_34_f,
+      audience_fr_35_44_h: (topAd as any).audience_fr_35_44_h,
+      audience_fr_35_44_f: (topAd as any).audience_fr_35_44_f,
+      audience_fr_45_54_h: (topAd as any).audience_fr_45_54_h,
+      audience_fr_45_54_f: (topAd as any).audience_fr_45_54_f,
+      audience_fr_55_64_h: (topAd as any).audience_fr_55_64_h,
+      audience_fr_55_64_f: (topAd as any).audience_fr_55_64_f,
+      audience_fr_65_plus_h: (topAd as any).audience_fr_65_plus_h,
+      audience_fr_65_plus_f: (topAd as any).audience_fr_65_plus_f,
     };
   };
 
   // Calcul des budgets avec la nouvelle logique pour chaque liste
   const topAdsByReachWithBudget = useMemo(() => {
-    return topAdsByReach.map(ad => {
+    const adsWithBudget = topAdsByReach.map(ad => {
       const adsData = convertTopAdToAdsData(ad);
       const calculation = budgetCalculator.calculateBudget(adsData);
       return {
@@ -45,10 +74,18 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
         adsData
       };
     });
+
+    console.log('📊 Top Ads by Reach (après calcul budget):', adsWithBudget.slice(0, 3).map(ad => ({
+      ad_id: ad.ad_id,
+      reach: ad.reach,
+      rank: ad.rank
+    })));
+
+    return adsWithBudget;
   }, [topAdsByReach]);
 
   const topAdsByDurationWithBudget = useMemo(() => {
-    return topAdsByDuration.map(ad => {
+    const adsWithBudget = topAdsByDuration.map(ad => {
       const adsData = convertTopAdToAdsData(ad);
       const calculation = budgetCalculator.calculateBudget(adsData);
       return {
@@ -58,7 +95,24 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
         adsData
       };
     });
+
+    console.log('📊 Top Ads by Duration (après calcul budget):', adsWithBudget.slice(0, 3).map(ad => ({
+      ad_id: ad.ad_id,
+      duration: ad.duration,
+      rank: ad.rank
+    })));
+
+    return adsWithBudget;
   }, [topAdsByDuration]);
+
+  // Créer un tableau consolidé de toutes les publicités pour la comparaison démographique
+  const allAdsData = useMemo(() => {
+    const allAds = [...topAdsByReachWithBudget, ...topAdsByDurationWithBudget];
+    const uniqueAds = allAds.filter((ad, index, self) => 
+      index === self.findIndex(a => a.ad_id === ad.ad_id)
+    );
+    return uniqueAds.map(ad => ad.adsData);
+  }, [topAdsByReachWithBudget, topAdsByDurationWithBudget]);
 
   if (!projectId) {
     return (
@@ -123,6 +177,7 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
               ads={topAdsByReachWithBudget}
               title="Publicités avec le plus grand reach"
               icon={<Users className="h-5 w-5 text-blue-500" />}
+              allAds={allAdsData}
             />
           </TabsContent>
           
@@ -131,6 +186,7 @@ export const TopAdsAnalysis = ({ projectId }: TopAdsAnalysisProps) => {
               ads={topAdsByDurationWithBudget}
               title="Publicités avec la plus longue durée"
               icon={<Clock className="h-5 w-5 text-green-500" />}
+              allAds={allAdsData}
             />
           </TabsContent>
         </Tabs>
