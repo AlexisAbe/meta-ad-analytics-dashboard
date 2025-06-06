@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
-import { adsDataProcessor } from '@/services/adsDataProcessor';
+import { dataProcessor } from '@/services/dataProcessor';
 import { useAdsData } from '@/hooks/useAdsData';
 import { toast } from '@/hooks/use-toast';
 import { Project } from '@/types/projects';
@@ -38,7 +37,7 @@ export const DataImport = ({ selectedProject }: DataImportProps) => {
     }
 
     try {
-      const processed = adsDataProcessor.processSheetData(rawData);
+      const processed = dataProcessor.processSheetData(rawData);
       
       if (processed.errors.length > 0) {
         toast({
