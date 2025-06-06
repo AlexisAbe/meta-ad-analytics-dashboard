@@ -1,34 +1,73 @@
-
 import { AdsData, ProcessedSheetData } from '@/types/ads';
 import { dateParser } from '@/utils/dateParser';
 import { brandExtractor } from '@/utils/brandExtractor';
 import { headerMatcher } from '@/utils/headerMatcher';
+import { dataValidator } from './dataValidator';
 
 export const adsDataProcessor = {
   processSheetData(rawData: string, forcedBrandName?: string): ProcessedSheetData {
-    const lines = rawData.trim().split('\n');
     const errors: string[] = [];
     const processedData: AdsData[] = [];
     
-    if (lines.length === 0) {
+    if (!rawData.trim()) {
       return { data: [], errors: ['Aucune donnée à traiter'], preview: [] };
+    }
+    
+    console.log('🚀 Début du traitement des données');
+    console.log('Données brutes (100 premiers caractères):', rawData.substring(0, 100));
+    
+    // Validation et correction automatique
+    const validation = dataValidator.validateAndCorrectSheetData(rawData);
+    
+    console.log('📋 Résultat de la validation:', {
+      isValid: validation.isValid,
+      errorsCount: validation.errors.length,
+      warningsCount: validation.warnings.length,
+      hasCorrectedData: !!validation.correctedData
+    });
+    
+    // Afficher les messages de validation
+    validation.warnings.forEach(warning => {
+      console.log('⚠️ Avertissement:', warning);
+      errors.push(`Avertissement: ${warning}`);
+    });
+    
+    validation.suggestions.forEach(suggestion => {
+      console.log('💡 Suggestion:', suggestion);
+    });
+    
+    if (validation.errors.length > 0) {
+      console.log('❌ Erreurs de validation:', validation.errors);
+      return { 
+        data: [], 
+        errors: [...errors, ...validation.errors], 
+        preview: [] 
+      };
+    }
+    
+    // Utiliser les données corrigées si disponibles
+    const dataToProcess = validation.correctedData || rawData;
+    const lines = dataToProcess.trim().split('\n');
+    
+    console.log('📊 Traitement des données corrigées - Nombre de lignes:', lines.length);
+    
+    if (lines.length === 0) {
+      return { data: [], errors: ['Aucune donnée à traiter après validation'], preview: [] };
     }
     
     // Headers expected (first line)
     const headers = lines[0].split('\t');
     const preview = lines.slice(0, 5).map(line => line.split('\t'));
     
-    console.log('Headers detectés:', headers);
-    console.log('Nombre de colonnes:', headers.length);
-    console.log('Marque forcée:', forcedBrandName);
-    console.log('Première ligne de données (exemple):', lines[1]?.split('\t').slice(0, 10));
+    console.log('📝 Headers detectés:', headers);
+    console.log('📏 Nombre de colonnes:', headers.length);
+    console.log('🏷️ Marque forcée:', forcedBrandName);
     
-    // Check if we have tab-separated data
-    if (headers.length === 1 && lines[0].includes(',')) {
-      errors.push('Les données semblent être séparées par des virgules. Utilisez des tabulations (copiez directement depuis Google Sheets).');
-      return { data: [], errors, preview };
+    if (lines.length > 1) {
+      console.log('📄 Première ligne de données (exemple):', lines[1]?.split('\t').slice(0, 10));
     }
     
+    // Check if we have enough columns
     if (headers.length < 6) {
       errors.push(`Trop peu de colonnes détectées (${headers.length}). Assurez-vous de copier toutes les colonnes depuis Google Sheets.`);
       return { data: [], errors, preview };
@@ -38,12 +77,12 @@ export const adsDataProcessor = {
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = lines[i].split('\t');
-        console.log(`Ligne ${i + 1} - Nombre de valeurs:`, values.length);
-        console.log(`Ligne ${i + 1} - Premières valeurs:`, values.slice(0, 10));
+        console.log(`📋 Ligne ${i + 1} - Nombre de valeurs:`, values.length);
+        console.log(`📋 Ligne ${i + 1} - Premières valeurs:`, values.slice(0, 10));
         
         const ad = this.mapRowToAd(headers, values, forcedBrandName);
         if (ad) {
-          console.log(`Ligne ${i + 1} - Ad créée:`, {
+          console.log(`✅ Ligne ${i + 1} - Ad créée:`, {
             ad_id: ad.ad_id,
             start_date: ad.start_date,
             brand: ad.brand,
@@ -51,30 +90,32 @@ export const adsDataProcessor = {
           });
           processedData.push(ad);
         } else {
+          console.log(`❌ Ligne ${i + 1} - Données insuffisantes`);
           errors.push(`Ligne ${i + 1}: Données insuffisantes (ID ou date de début manquante)`);
         }
       } catch (error) {
-        console.error(`Erreur ligne ${i + 1}:`, error);
+        console.error(`💥 Erreur ligne ${i + 1}:`, error);
         errors.push(`Ligne ${i + 1}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
       }
     }
     
-    console.log('Données traitées:', processedData.length);
+    console.log('📈 Données traitées avec succès:', processedData.length);
+    console.log('🚨 Erreurs rencontrées:', errors.length);
     
     return { data: processedData, errors, preview };
   },
 
   mapRowToAd(headers: string[], values: string[], forcedBrandName?: string): AdsData | null {
-    console.log('Mapping avec headers:', headers.slice(0, 10));
-    console.log('Mapping avec values:', values.slice(0, 10));
+    console.log('🔗 Mapping avec headers:', headers.slice(0, 10));
+    console.log('🔗 Mapping avec values:', values.slice(0, 10));
     
     // Extract ID with exact Google Sheets header - MUST be first column
     const adId = values[0]?.trim(); // Premier élément = ID de la publicité
     
-    console.log('ID extrait (première colonne):', adId);
+    console.log('🆔 ID extrait (première colonne):', adId);
                  
     if (!adId || adId === '') {
-      console.log('ID de publicité vide dans la première colonne');
+      console.log('❌ ID de publicité vide dans la première colonne');
       return null;
     }
 
@@ -91,13 +132,13 @@ export const adsDataProcessor = {
       'End Date'
     ]);
     
-    console.log('Dates extraites:', { startDateStr, endDateStr });
+    console.log('📅 Dates extraites:', { startDateStr, endDateStr });
     
     const startDate = dateParser.parseDate(startDateStr);
     
     // Si pas de date de début, on ne peut pas traiter
     if (!startDate) {
-      console.log('Date de début manquante ou invalide:', startDateStr);
+      console.log('❌ Date de début manquante ou invalide:', startDateStr);
       return null;
     }
     
@@ -105,13 +146,13 @@ export const adsDataProcessor = {
     let endDate: string;
     if (!endDateStr || endDateStr.trim() === '') {
       endDate = dateParser.getCurrentDate();
-      console.log('Date de fin manquante, campagne active détectée. Date de fin assignée:', endDate);
+      console.log('📅 Date de fin manquante, campagne active détectée. Date de fin assignée:', endDate);
     } else {
       const parsedEndDate = dateParser.parseDate(endDateStr);
       if (!parsedEndDate) {
         // Si la date de fin est invalide, utiliser la date d'aujourd'hui
         endDate = dateParser.getCurrentDate();
-        console.log('Date de fin invalide, utilisation de la date d\'aujourd\'hui:', endDate);
+        console.log('📅 Date de fin invalide, utilisation de la date d\'aujourd\'hui:', endDate);
       } else {
         endDate = parsedEndDate;
       }
@@ -154,7 +195,7 @@ export const adsDataProcessor = {
       'URL snapshot'
     ]);
 
-    console.log('Champs extraits:', {
+    console.log('📊 Champs extraits:', {
       adId,
       audienceTotal,
       linkTitle: linkTitle?.substring(0, 30),
@@ -195,7 +236,7 @@ export const adsDataProcessor = {
       start_month: new Date(startDate).toISOString().substring(0, 7)
     };
     
-    console.log('Objet final créé:', {
+    console.log('🎯 Objet final créé:', {
       ad_id: result.ad_id,
       start_date: result.start_date,
       start_month: result.start_month,
