@@ -11,6 +11,7 @@ import { BudgetCalculation } from '@/types/budget';
 import { AdsData } from '@/types/ads';
 import { BudgetCalculationTooltip } from '../BudgetCalculationTooltip';
 import { AudienceModal } from '../Demographics/AudienceModal';
+import { demographicAnalyzer } from '@/services/demographicAnalyzer';
 
 interface TopAdCardProps {
   ad: TopAd & {
@@ -24,8 +25,15 @@ interface TopAdCardProps {
 export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
   const [showAudienceModal, setShowAudienceModal] = useState(false);
 
-  console.log('TopAds AdCard - Données:', {
+  // Pré-calculer les données démographiques pour cette publicité
+  const adDemographics = demographicAnalyzer.calculateDemographicBreakdown([ad.adsData]);
+
+  console.log('TopAds AdCard - Données démographiques:', {
     ad_id: ad.ad_id,
+    hasData: adDemographics.hasData,
+    completeness: adDemographics.completeness,
+    availableAgeGroups: adDemographics.availableAgeGroups.length,
+    isUsable: adDemographics.isUsable,
     snapshot_url: ad.snapshot_url,
     start_date: ad.start_date,
     month: ad.month,
@@ -63,18 +71,40 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
 
   const dateStatus = getDateStatus();
 
+  // Fonction pour obtenir le badge de complétude démographique
+  const getDemographicBadge = () => {
+    if (!adDemographics.hasData) {
+      return null; // Aucun badge si pas de données
+    }
+    
+    if (adDemographics.completeness === 100) {
+      return (
+        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+          Données complètes
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+          Données partielles
+        </Badge>
+      );
+    }
+  };
+
   return (
     <>
       <Card className="mb-4">
         <CardContent className="pt-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge variant="outline">{ad.brand}</Badge>
                 <Badge variant="secondary">#{ad.rank}</Badge>
                 <Badge className={`text-xs ${dateStatus.color}`}>
                   {dateStatus.label}
                 </Badge>
+                {getDemographicBadge()}
                 {hasValidUrl && (
                   <Button
                     variant="ghost"
@@ -86,16 +116,19 @@ export const TopAdCard = ({ ad, allAds = [] }: TopAdCardProps) => {
                     Voir pub
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAudienceModal(true)}
-                  className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700"
-                  title="Voir l'analyse d'audience détaillée"
-                >
-                  <User className="h-3 w-3 mr-1" />
-                  Voir l'audience
-                </Button>
+                {/* Afficher le bouton "Voir l'audience" si on a des données démographiques */}
+                {adDemographics.hasData && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAudienceModal(true)}
+                    className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700"
+                    title="Voir l'analyse d'audience détaillée"
+                  >
+                    <User className="h-3 w-3 mr-1" />
+                    Voir l'audience
+                  </Button>
+                )}
                 {!hasValidUrl && (
                   <span className="text-xs text-gray-400">Pas d'URL</span>
                 )}

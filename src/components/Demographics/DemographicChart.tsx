@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingUp, TrendingDown, Info, AlertCircle } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { DemographicData, ComparisonData, AgeGroupData } from '@/types/demographics';
 
 interface DemographicChartProps {
@@ -33,32 +33,6 @@ export const DemographicChart = ({
             <p>Données démographiques non disponibles</p>
             <p className="text-sm mt-1">
               Formats supportés : "Audience FR 25-34 Homme", "FR_35_44_Female", "45-54 H"...
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Afficher un message si les données ne sont pas utilisables (moins de 2 tranches)
-  if (!data.isUsable) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-orange-400" />
-            <p className="text-gray-600">Données démographiques insuffisantes pour l'analyse</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Seulement {data.availableAgeGroups.length} tranche(s) d'âge détectée(s) sur 6
-            </p>
-            <p className="text-sm text-gray-500">
-              Au moins 2 tranches sont nécessaires pour afficher l'analyse
             </p>
           </div>
         </CardContent>
@@ -198,14 +172,14 @@ export const DemographicChart = ({
         )}
         
         {/* Message informatif pour les tranches manquantes */}
-        {data.missingAgeGroups.length > 0 && (
+        {data.completeness < 100 && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Certaines tranches d'âge sont absentes car non ciblées dans cette campagne.</p>
+                <p className="font-medium mb-1">Certaines tranches d'âge ne sont pas renseignées dans cette publicité.</p>
                 <p className="text-xs text-blue-700">
-                  Tranches manquantes : {data.missingAgeGroups.join(', ')}
+                  Tranches disponibles : {data.availableAgeGroups.join(', ')} ans
                 </p>
               </div>
             </div>
