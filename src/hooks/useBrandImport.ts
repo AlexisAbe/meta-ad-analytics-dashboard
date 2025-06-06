@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { adsDataProcessor } from '@/services/adsDataProcessor';
+import { dataProcessor } from '@/services/dataProcessor';
 import { useAdsData } from '@/hooks/useAdsData';
 import { toast } from '@/hooks/use-toast';
 import { Project } from '@/types/projects';
@@ -76,7 +76,7 @@ export const useBrandImport = (selectedProject?: Project) => {
     }
 
     try {
-      const processed = adsDataProcessor.processSheetData(brandData.rawData, brandData.brandName.trim());
+      const processed = dataProcessor.processSheetData(brandData.rawData, brandData.brandName.trim());
       
       if (processed.errors.length > 0) {
         toast({
