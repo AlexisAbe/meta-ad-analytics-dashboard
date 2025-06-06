@@ -65,6 +65,8 @@ export const projectsService = {
     limit: number = 10, 
     metric: 'reach' | 'duration' = 'reach'
   ): Promise<TopAd[]> {
+    console.log('🔍 Calling getTopAdsByProject with:', { projectId, limit, metric });
+    
     const { data, error } = await supabase
       .rpc('get_top_ads_by_project', {
         p_project_id: projectId,
@@ -76,6 +78,14 @@ export const projectsService = {
       console.error('Error fetching top ads:', error);
       throw error;
     }
+    
+    console.log('📊 Raw data from get_top_ads_by_project:', data);
+    console.log('📊 First item structure:', data?.[0]);
+    console.log('📊 Snapshot URLs in data:', data?.map(item => ({ 
+      ad_id: item.ad_id, 
+      snapshot_url: item.snapshot_url,
+      has_snapshot_url: !!item.snapshot_url 
+    })));
     
     return data || [];
   }
