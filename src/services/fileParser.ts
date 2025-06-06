@@ -1,4 +1,3 @@
-
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { AdRawData, ParsedImportResult } from '@/types/adRawData';
@@ -100,7 +99,7 @@ export const fileParser = {
         },
         header: false,
         skipEmptyLines: true
-      });
+      } as Papa.ParseConfig);
     });
   },
 
