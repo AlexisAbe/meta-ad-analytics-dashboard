@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Project, TopAd } from '@/types/projects';
 
@@ -81,11 +80,8 @@ export const projectsService = {
     
     console.log('📊 Raw data from get_top_ads_by_project:', data);
     console.log('📊 First item structure:', data?.[0]);
-    console.log('📊 Snapshot URLs in data:', data?.map(item => ({ 
-      ad_id: item.ad_id, 
-      snapshot_url: item.snapshot_url,
-      has_snapshot_url: !!item.snapshot_url 
-    })));
+    console.log('📊 Number of items returned:', data?.length);
+    console.log('📊 Available fields:', data?.[0] ? Object.keys(data[0]) : 'No data');
     
     return data || [];
   }
