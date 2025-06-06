@@ -3,7 +3,8 @@ import { AdRawData, ParsedImportResult } from '@/types/adRawData';
 import { excelParser } from './parsers/excelParser';
 import { csvParser } from './parsers/csvParser';
 import { dataConverter } from './parsers/dataConverter';
-import { columnDetector, ColumnMapping } from './parsers/columnDetector';
+import { columnDetector } from './parsers/columnDetector';
+import type { ColumnMapping } from './parsers/columnDetector';
 
 export interface FileParseResult {
   data: string[][];
@@ -13,7 +14,7 @@ export interface FileParseResult {
   errors: string[];
 }
 
-export { ColumnMapping };
+export type { ColumnMapping };
 
 export const fileParser = {
   async parseFile(file: File): Promise<FileParseResult> {

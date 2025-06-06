@@ -22,13 +22,13 @@ export const csvParser = {
             });
           }
         },
-        error: (error: Papa.ParseError) => {
+        error: () => {
           resolve({
             data: [],
             headers: [],
             totalRows: 0,
             detectedColumns: {},
-            errors: [`Erreur Papa Parse: ${error.message}`]
+            errors: ['Erreur lors du parsing CSV']
           });
         },
         header: false,
