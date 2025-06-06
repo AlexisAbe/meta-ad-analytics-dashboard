@@ -51,7 +51,13 @@ export const fileParser = {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as string[][];
+          
+          // Convertir en JSON avec les types bruts pour préserver les dates Excel
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+            header: 1, 
+            raw: false, // Important: convertir les dates Excel en chaînes
+            dateNF: 'yyyy-mm-dd' // Format de date souhaité
+          }) as string[][];
           
           const result = this.processRawData(jsonData);
           console.log('✅ Fichier Excel parsé avec succès');
@@ -177,6 +183,7 @@ export const fileParser = {
     forcedBrand?: string
   ): ParsedImportResult {
     console.log('🚀 Conversion vers AdRawData avec mapping:', columnMapping);
+    console.log('🏷️ Marque forcée reçue:', forcedBrand);
     
     const result: ParsedImportResult = {
       data: [],
@@ -224,7 +231,8 @@ export const fileParser = {
       total: result.totalLines,
       valides: result.validLines,
       exclues: result.excludedLines,
-      incomplètes: result.incompleteLines
+      incomplètes: result.incompleteLines,
+      marqueUtilisee: forcedBrand
     });
 
     return result;
@@ -250,6 +258,8 @@ export const fileParser = {
     // Extraction des données
     const rawStartDate = getValue('start_date');
     const rawEndDate = getValue('end_date');
+    
+    console.log(`📅 Ligne ${lineNumber} - Dates brutes:`, { rawStartDate, rawEndDate });
     
     const start_date = dateParser.parseDate(rawStartDate);
     const end_date = rawEndDate ? dateParser.parseDate(rawEndDate) : dateParser.getCurrentDate();
@@ -279,8 +289,16 @@ export const fileParser = {
     // Détection du format
     const format = this.detectAdFormat(body, title, getValue('format'));
 
-    // Extraction de la marque
-    const brand = forcedBrand || getValue('brand') || this.extractBrand(body, title) || 'Marque non identifiée';
+    // Extraction de la marque - PRIORITÉ À LA MARQUE FORCÉE
+    let brand: string;
+    if (forcedBrand && forcedBrand.trim()) {
+      brand = forcedBrand.trim();
+      console.log(`🏷️ Ligne ${lineNumber} - Marque forcée utilisée: ${brand}`);
+    } else {
+      const detectedBrand = getValue('brand') || this.extractBrand(body, title);
+      brand = detectedBrand || 'Marque non identifiée';
+      console.log(`🏷️ Ligne ${lineNumber} - Marque détectée/défaut: ${brand}`);
+    }
 
     const adData: AdRawData = {
       ad_id,
@@ -303,6 +321,8 @@ export const fileParser = {
       ad_id,
       audience_total,
       brand,
+      start_date,
+      end_date,
       exclusion_reason
     });
 

@@ -92,6 +92,7 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
   const processDataWithMapping = () => {
     if (!fileResult) return;
 
+    console.log('🔄 Traitement avec mapping et marque forcée:', forcedBrand);
     const result = fileParser.convertToAdData(fileResult.data, columnMapping, forcedBrand);
     setParseResult(result);
     setParsedData(result.data);
@@ -99,7 +100,7 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
 
     toast({
       title: "Mapping appliqué",
-      description: `${result.validLines} publicités valides détectées`,
+      description: `${result.validLines} publicités valides détectées${forcedBrand ? ` pour la marque ${forcedBrand}` : ''}`,
     });
   };
 
@@ -230,7 +231,9 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
               {forcedBrand && (
                 <>
                   <br />
-                  <strong>Marque forcée :</strong> {forcedBrand}
+                  <strong>Marque forcée :</strong> <Badge variant="outline" className="ml-1">{forcedBrand}</Badge>
+                  <br />
+                  <span className="text-xs text-blue-600">Cette marque sera appliquée à toutes les lignes importées</span>
                 </>
               )}
             </div>
@@ -254,6 +257,9 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
             />
             <p className="text-xs text-gray-500 mt-2">
               Formats supportés : .xlsx, .xls, .csv
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              ✅ Les dates Excel sont automatiquement converties au format YYYY-MM-DD
             </p>
           </div>
 
@@ -352,8 +358,13 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
       {parsedData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              Aperçu des données importées ({parsedData.length} lignes)
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Aperçu des données importées ({parsedData.length} lignes)</span>
+              {forcedBrand && (
+                <Badge variant="outline" className="text-sm">
+                  Marque: {forcedBrand}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -384,7 +395,10 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
                         {ad.ad_id}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${ad.brand === forcedBrand ? 'bg-blue-50 border-blue-300' : ''}`}
+                        >
                           {ad.brand}
                         </Badge>
                       </TableCell>
