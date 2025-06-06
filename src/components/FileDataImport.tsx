@@ -1,9 +1,8 @@
-
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileSpreadsheet } from 'lucide-react';
 import { fileParser, FileParseResult } from '@/services/fileParser';
-import { ExtendedColumnMapping } from '@/services/parsers/columnDetector';
+import { ExtendedColumnMapping, columnDetector } from '@/services/parsers/columnDetector';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { FileUploadZone } from './FileImport/FileUploadZone';
 import { FileParseResults } from './FileImport/FileParseResults';
@@ -25,7 +24,7 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileResult, setFileResult] = useState<FileParseResult | null>(null);
   const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const [columnMapping, setColumnMapping] = useState<ExtendedColumnMapping>({});
+  const [columnMapping, setColumnMapping] = useState<ExtendedColumnMapping>(columnDetector.createEmptyMapping());
   const [parsedData, setParsedData] = useState<AdRawData[]>([]);
   const [parseResult, setParseResult] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
