@@ -90,7 +90,7 @@ export const intelligentParser = {
         separator: sep,
         avgColumns: avgCount,
         consistency: consistency ? 1 : 0,
-        score: avgColumns * (consistency ? 2 : 0.5)
+        score: avgCount * (consistency ? 2 : 0.5)
       };
     });
 
