@@ -1,8 +1,7 @@
-
 import { AdsData } from '@/types/ads';
-import { BudgetSettings, BudgetCalculation, BudgetSummary, AdType } from '@/types/budget';
+import { BudgetSettings, BudgetCalculation, BudgetSummary, AdType, CpmApplication, CpmSource } from '@/types/budget';
 
-// Configuration par défaut
+// Configuration par défaut mise à jour
 const DEFAULT_BUDGET_SETTINGS: BudgetSettings = {
   defaultCpm: 6,
   cpmByType: {
@@ -18,6 +17,11 @@ const DEFAULT_BUDGET_SETTINGS: BudgetSettings = {
     'Mode': 11,
     'Automobile': 8,
   },
+  cpmByBrand: {}, // Nouvelle section pour CPM par marque
+  impressionSettings: {
+    repeatRate: 1.3,
+    showEstimationNote: true,
+  },
 };
 
 export class BudgetCalculator {
@@ -25,6 +29,67 @@ export class BudgetCalculator {
 
   constructor(settings: Partial<BudgetSettings> = {}) {
     this.settings = { ...DEFAULT_BUDGET_SETTINGS, ...settings };
+  }
+
+  /**
+   * Détermine le CPM selon la hiérarchie : Marque → Secteur → Format → Défaut
+   */
+  determineCpmWithSource(brand?: string, sector?: string, adType?: AdType): CpmApplication {
+    // 1. Priorité absolue : CPM par marque
+    if (brand && this.settings.cpmByBrand[brand]) {
+      return {
+        value: this.settings.cpmByBrand[brand],
+        source: 'brand',
+        sourceKey: brand
+      };
+    }
+    
+    // 2. CPM par secteur
+    if (sector && this.settings.cpmBySector[sector]) {
+      return {
+        value: this.settings.cpmBySector[sector],
+        source: 'sector',
+        sourceKey: sector
+      };
+    }
+    
+    // 3. CPM par type/format
+    if (adType && this.settings.cpmByType[adType]) {
+      return {
+        value: this.settings.cpmByType[adType],
+        source: 'format',
+        sourceKey: adType
+      };
+    }
+    
+    // 4. CPM par défaut
+    return {
+      value: this.settings.defaultCpm,
+      source: 'default'
+    };
+  }
+
+  /**
+   * Calcule les impressions estimées
+   */
+  calculateEstimatedImpressions(audience: number): number {
+    return Math.round(audience * this.settings.impressionSettings.repeatRate);
+  }
+
+  /**
+   * Détecte les champs manquants pour une publicité
+   */
+  detectMissingFields(ad: AdsData): string[] {
+    const missing: string[] = [];
+    
+    if (!ad.brand || ad.brand.trim() === '') missing.push('Marque');
+    if (!ad.start_date) missing.push('Date de début');
+    if (!ad.end_date) missing.push('Date de fin');
+    if (!ad.link_title && !ad.ad_body) missing.push('Titre ou contenu');
+    if (!ad.creative_format) missing.push('Format créatif');
+    if (!ad.snapshot_url) missing.push('URL snapshot');
+    
+    return missing;
   }
 
   /**
@@ -71,25 +136,7 @@ export class BudgetCalculator {
   }
 
   /**
-   * Détermine le CPM à appliquer selon la logique de priorité
-   */
-  determineCpm(adType: AdType, sector?: string): number {
-    // 1. Priorité au CPM secteur si disponible
-    if (sector && this.settings.cpmBySector[sector]) {
-      return this.settings.cpmBySector[sector];
-    }
-    
-    // 2. Sinon CPM par type
-    if (this.settings.cpmByType[adType]) {
-      return this.settings.cpmByType[adType];
-    }
-    
-    // 3. CPM par défaut
-    return this.settings.defaultCpm;
-  }
-
-  /**
-   * Valide si une publicité peut être incluse dans le calcul - Version enrichie pour diagnostic
+   * Valide si une publicité peut être incluse dans le calcul - Version enrichie
    */
   validateAdWithDetails(ad: AdsData): { isValid: boolean; reason?: string } {
     // Validation audience
@@ -131,11 +178,6 @@ export class BudgetCalculator {
       }
     }
     
-    // Validation marque
-    if (!ad.brand || ad.brand.trim() === '') {
-      return { isValid: false, reason: 'Marque manquante ou vide' };
-    }
-    
     // Validation ID
     if (!ad.ad_id || ad.ad_id.trim() === '') {
       return { isValid: false, reason: 'ID publicité manquant' };
@@ -152,43 +194,56 @@ export class BudgetCalculator {
   }
 
   /**
-   * Calcule le budget estimé pour une publicité avec diagnostic enrichi
+   * Calcule le budget estimé avec la nouvelle logique hiérarchique
    */
   calculateBudget(ad: AdsData): BudgetCalculation {
     const validation = this.validateAdWithDetails(ad);
+    const missingFields = this.detectMissingFields(ad);
+    const hasIncompleteData = missingFields.length > 0;
     
     if (!validation.isValid) {
       return {
         estimatedBudget: 0,
         appliedCpm: 0,
+        cpmSource: { value: 0, source: 'default' },
+        estimatedImpressions: 0,
         duration: 0,
         adType: 'Autre',
         isActive: false,
         isValid: false,
         exclusionReason: validation.reason,
+        hasIncompleteData: true,
+        missingFields: missingFields,
       };
     }
 
     const adType = this.detectAdType(ad);
     const duration = this.calculateDuration(ad.start_date, ad.end_date);
-    const appliedCpm = this.determineCpm(adType, ad.brand); // Utilisation de la marque comme secteur
+    const cpmApplication = this.determineCpmWithSource(ad.brand, ad.brand, adType); // Utilise brand comme secteur par défaut
     const isActive = !ad.end_date || new Date(ad.end_date) >= new Date();
     
-    // Formule : (audience * cpm) / 1000
-    const estimatedBudget = (ad.audience_eu_total * appliedCpm) / 1000;
+    // Calcul des impressions estimées
+    const estimatedImpressions = this.calculateEstimatedImpressions(ad.audience_eu_total);
+    
+    // Formule : (impressions * cpm) / 1000
+    const estimatedBudget = (estimatedImpressions * cpmApplication.value) / 1000;
 
     return {
-      estimatedBudget: Math.round(estimatedBudget * 100) / 100, // Arrondi à 2 décimales
-      appliedCpm,
+      estimatedBudget: Math.round(estimatedBudget * 100) / 100,
+      appliedCpm: cpmApplication.value,
+      cpmSource: cpmApplication,
+      estimatedImpressions,
       duration,
       adType,
       isActive,
       isValid: true,
+      hasIncompleteData,
+      missingFields,
     };
   }
 
   /**
-   * Calcule le budget total et les statistiques pour un ensemble de publicités
+   * Calcule le résumé avec les nouvelles métriques
    */
   calculateSummary(ads: AdsData[]): BudgetSummary {
     const calculations = ads.map(ad => this.calculateBudget(ad));
@@ -196,9 +251,22 @@ export class BudgetCalculator {
     const invalidCalculations = calculations.filter(calc => !calc.isValid);
     
     const totalBudget = validCalculations.reduce((sum, calc) => sum + calc.estimatedBudget, 0);
+    const totalImpressions = validCalculations.reduce((sum, calc) => sum + calc.estimatedImpressions, 0);
     const totalCpmWeighted = validCalculations.reduce((sum, calc) => sum + (calc.appliedCpm * calc.estimatedBudget), 0);
     const averageCpm = totalBudget > 0 ? totalCpmWeighted / totalBudget : 0;
     const totalDuration = validCalculations.reduce((sum, calc) => sum + calc.duration, 0);
+    
+    // Distribution des sources CPM
+    const cpmSourceDistribution: Record<CpmSource, number> = {
+      brand: 0,
+      sector: 0,
+      format: 0,
+      default: 0,
+    };
+    
+    validCalculations.forEach(calc => {
+      cpmSourceDistribution[calc.cpmSource.source]++;
+    });
     
     const exclusionReasons = Array.from(new Set(
       invalidCalculations
@@ -208,11 +276,13 @@ export class BudgetCalculator {
 
     return {
       totalBudget: Math.round(totalBudget * 100) / 100,
+      totalImpressions,
       validAds: validCalculations.length,
       invalidAds: invalidCalculations.length,
       exclusionReasons,
       averageCpm: Math.round(averageCpm * 100) / 100,
       totalDuration,
+      cpmSourceDistribution,
     };
   }
 
