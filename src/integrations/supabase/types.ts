@@ -190,6 +190,7 @@ export type Database = {
           start_date: string
           end_date: string
           rank: number
+          snapshot_url: string
         }[]
       }
     }
