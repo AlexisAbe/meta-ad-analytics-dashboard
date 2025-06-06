@@ -71,7 +71,7 @@ export const fileParser = {
 
   async parseCsvFile(file: File): Promise<FileParseResult> {
     return new Promise((resolve) => {
-      Papa.parse(file, {
+      Papa.parse<string[]>(file, {
         complete: (results: Papa.ParseResult<string[]>) => {
           try {
             const data = results.data as string[][];
