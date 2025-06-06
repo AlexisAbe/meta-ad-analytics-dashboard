@@ -1,3 +1,4 @@
+
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { AdRawData, ParsedImportResult } from '@/types/adRawData';
@@ -88,7 +89,7 @@ export const fileParser = {
             });
           }
         },
-        error: (error: Papa.ParseError) => {
+        error: (error: Error) => {
           resolve({
             data: [],
             headers: [],
