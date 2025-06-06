@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, AlertCircle, Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Project } from '@/types/projects';
 import { useBrandImport } from '@/hooks/useBrandImport';
-import { BrandImportTab } from './BrandImport/BrandImportTab';
+import { InteractiveDataImport } from './InteractiveDataImport';
 
 interface BrandDataImportProps {
   selectedProject?: Project;
@@ -19,10 +19,6 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
     setActiveTab,
     addBrandTab,
     removeBrandTab,
-    updateBrandData,
-    processBrand,
-    processAllBrands,
-    isInserting
   } = useBrandImport(selectedProject);
 
   return (
@@ -30,7 +26,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Import de données par marque
+          Import de données par marque (Version améliorée)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -45,7 +41,7 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
             <strong>Projet sélectionné :</strong> {selectedProject.name}
             <br />
-            <strong>Note :</strong> Les données seront étiquetées avec le nom de marque que vous spécifiez. Les imports multiples sont autorisés.
+            <strong>Note :</strong> Utilisez les onglets ci-dessous pour importer des données avec des marques spécifiques.
           </div>
         )}
 
@@ -53,13 +49,6 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
           <Button variant="outline" size="sm" onClick={addBrandTab}>
             <Plus className="h-4 w-4 mr-1" />
             Ajouter une marque
-          </Button>
-          <Button 
-            onClick={processAllBrands}
-            disabled={isInserting || !selectedProject}
-            className="ml-auto"
-          >
-            {isInserting ? 'Traitement en cours...' : 'Traiter toutes les marques'}
           </Button>
         </div>
 
@@ -86,14 +75,14 @@ export const BrandDataImport = ({ selectedProject }: BrandDataImportProps) => {
           </TabsList>
 
           {brandImports.map((brand) => (
-            <BrandImportTab
-              key={brand.id}
-              brand={brand}
-              onUpdate={updateBrandData}
-              onProcess={processBrand}
-              isProcessing={isInserting}
-              disabled={!selectedProject}
-            />
+            <div key={brand.id} className={activeTab === brand.id ? 'block' : 'hidden'}>
+              <div className="mt-4">
+                <InteractiveDataImport 
+                  selectedProject={selectedProject}
+                  forcedBrand={brand.brandName || undefined}
+                />
+              </div>
+            </div>
           ))}
         </Tabs>
       </CardContent>
