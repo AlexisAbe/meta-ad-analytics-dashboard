@@ -1,8 +1,11 @@
 
 import { useMemo } from 'react';
 import { AdsData, KPIData } from '@/types/ads';
+import { useBudgetCalculations } from './useBudgetCalculations';
 
 export const useKPIs = (ads: AdsData[]): KPIData => {
+  const { summary } = useBudgetCalculations(ads);
+  
   return useMemo(() => {
     const today = new Date();
     const currentMonth = today.toISOString().substring(0, 7);
@@ -21,8 +24,8 @@ export const useKPIs = (ads: AdsData[]): KPIData => {
     // 4. Reach cumulé total
     const totalReach = ads.reduce((sum, ad) => sum + ad.audience_eu_total, 0);
     
-    // 5. Budget estimé total
-    const estimatedBudget = ads.reduce((sum, ad) => sum + ad.budget_estimated, 0);
+    // 5. Budget estimé total (utilisation du nouveau calcul)
+    const estimatedBudget = summary.totalBudget;
     
     // 6. Taux de renouvellement (campagnes courtes < 14 jours)
     const shortCampaigns = ads.filter(ad => ad.days_active < 14).length;
@@ -36,5 +39,5 @@ export const useKPIs = (ads: AdsData[]): KPIData => {
       estimatedBudget: Math.round(estimatedBudget),
       renewalRate: Math.round(renewalRate * 10) / 10,
     };
-  }, [ads]);
+  }, [ads, summary]);
 };

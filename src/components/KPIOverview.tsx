@@ -1,17 +1,24 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
   Users, 
   Clock, 
   Target, 
   DollarSign, 
-  RefreshCw 
+  RefreshCw,
+  Settings,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { useKPIs } from '@/hooks/useKPIs';
+import { useBudgetCalculations } from '@/hooks/useBudgetCalculations';
+import { BudgetSettings } from './BudgetSettings';
 import { AdsData } from '@/types/ads';
+import { BudgetSettings as BudgetSettingsType } from '@/types/budget';
 
 interface KPIOverviewProps {
   ads: AdsData[];
@@ -19,7 +26,15 @@ interface KPIOverviewProps {
 }
 
 export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
+  const [showSettings, setShowSettings] = useState(false);
+  const [budgetSettings, setBudgetSettings] = useState<Partial<BudgetSettingsType>>({});
+  
   const kpis = useKPIs(ads);
+  const { summary, invalidAds } = useBudgetCalculations(ads, budgetSettings);
+
+  const handleSettingsChange = (newSettings: Partial<BudgetSettingsType>) => {
+    setBudgetSettings(newSettings);
+  };
 
   const kpiCards = [
     {
@@ -52,10 +67,11 @@ export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
     },
     {
       title: 'Budget Estimé',
-      value: `${(kpis.estimatedBudget / 1000).toFixed(0)}k €`,
+      value: `${summary.totalBudget.toLocaleString()} €`,
       icon: DollarSign,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
+      subtitle: `CPM moyen: ${summary.averageCpm}€`
     },
     {
       title: 'Taux Renouvellement',
@@ -68,13 +84,64 @@ export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline">Total: {ads.length} publicités</Badge>
-        {selectedBrands.map(brand => (
-          <Badge key={brand} variant="secondary">{brand}</Badge>
-        ))}
+      {/* En-tête avec filtres et paramètres */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">Total: {ads.length} publicités</Badge>
+          <Badge variant="outline" className="text-green-600">
+            Valides: {summary.validAds}
+          </Badge>
+          {summary.invalidAds > 0 && (
+            <Badge variant="outline" className="text-orange-600">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Exclues: {summary.invalidAds}
+            </Badge>
+          )}
+          {selectedBrands.map(brand => (
+            <Badge key={brand} variant="secondary">{brand}</Badge>
+          ))}
+        </div>
+        
+        <Button
+          variant="outline"
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex items-center gap-2"
+        >
+          <Settings className="h-4 w-4" />
+          Paramètres Budget
+        </Button>
       </div>
 
+      {/* Alertes pour les données exclues */}
+      {summary.invalidAds > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-orange-800">
+                  {summary.invalidAds} publicité(s) exclue(s) du calcul
+                </h4>
+                <div className="text-sm text-orange-700 mt-1">
+                  <p>Raisons d'exclusion :</p>
+                  <ul className="list-disc list-inside mt-1">
+                    {summary.exclusionReasons.map((reason, index) => (
+                      <li key={index}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Paramètres de budget */}
+      {showSettings && (
+        <BudgetSettings onSettingsChange={handleSettingsChange} />
+      )}
+
+      {/* Cartes KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {kpiCards.map((kpi, index) => {
           const IconComponent = kpi.icon;
@@ -92,11 +159,35 @@ export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
                 <div className={`text-2xl font-bold ${kpi.color}`}>
                   {kpi.value}
                 </div>
+                {kpi.subtitle && (
+                  <p className="text-xs text-gray-500 mt-1">{kpi.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {/* Informations sur le calcul */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="text-sm text-blue-700">
+              <h4 className="font-medium mb-2">À propos du calcul de budget</h4>
+              <p>
+                Le budget estimé est calculé avec la formule : <strong>(Audience × CPM) ÷ 1000</strong>
+              </p>
+              <p className="mt-1">
+                CPM appliqué par priorité : Secteur d'activité → Type de publicité → CPM par défaut
+              </p>
+              <p className="mt-1">
+                Les publicités sans date de fin sont considérées comme actives jusqu'à aujourd'hui.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
