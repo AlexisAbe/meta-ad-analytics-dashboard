@@ -17,6 +17,7 @@ import {
 import { useKPIs } from '@/hooks/useKPIs';
 import { useBudgetCalculations } from '@/hooks/useBudgetCalculations';
 import { BudgetSettings } from './BudgetSettings';
+import { DiagnosticPanel } from './DiagnosticPanel';
 import { AdsData } from '@/types/ads';
 import { BudgetSettings as BudgetSettingsType } from '@/types/budget';
 
@@ -111,6 +112,13 @@ export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
           Paramètres Budget
         </Button>
       </div>
+
+      {/* Panneau de diagnostic temporaire */}
+      <DiagnosticPanel 
+        excludedAds={invalidAds}
+        totalAds={ads.length}
+        validAds={summary.validAds}
+      />
 
       {/* Alertes pour les données exclues */}
       {summary.invalidAds > 0 && (

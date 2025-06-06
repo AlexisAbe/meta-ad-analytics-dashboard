@@ -9,10 +9,15 @@ export const useBudgetCalculations = (
   settings?: Partial<BudgetSettings>
 ) => {
   return useMemo(() => {
+    console.log(`🔄 Début calcul budget pour ${ads.length} publicités`);
+    
     // Mettre à jour les paramètres si fournis
     if (settings) {
       budgetCalculator.updateSettings(settings);
     }
+
+    // Logger automatiquement les exclusions
+    budgetCalculator.logExcludedAds(ads);
 
     // Calculer les budgets pour chaque publicité
     const calculations = ads.map(ad => ({
@@ -26,6 +31,8 @@ export const useBudgetCalculations = (
     // Séparer les publicités valides et invalides
     const validAds = calculations.filter(item => item.calculation.isValid);
     const invalidAds = calculations.filter(item => !item.calculation.isValid);
+
+    console.log(`✅ Résumé final: ${validAds.length} valides / ${ads.length} total (${invalidAds.length} exclues)`);
 
     return {
       calculations,

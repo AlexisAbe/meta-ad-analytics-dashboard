@@ -89,30 +89,73 @@ export class BudgetCalculator {
   }
 
   /**
-   * Valide si une publicité peut être incluse dans le calcul
+   * Valide si une publicité peut être incluse dans le calcul - Version enrichie pour diagnostic
    */
-  validateAd(ad: AdsData): { isValid: boolean; reason?: string } {
-    if (!ad.audience_eu_total || ad.audience_eu_total <= 0) {
-      return { isValid: false, reason: 'Audience manquante ou invalide' };
+  validateAdWithDetails(ad: AdsData): { isValid: boolean; reason?: string } {
+    // Validation audience
+    if (ad.audience_eu_total === undefined || ad.audience_eu_total === null) {
+      return { isValid: false, reason: 'Audience EU manquante (undefined/null)' };
     }
     
+    if (ad.audience_eu_total === 0) {
+      return { isValid: false, reason: 'Audience EU égale à zéro' };
+    }
+    
+    if (isNaN(ad.audience_eu_total) || ad.audience_eu_total < 0) {
+      return { isValid: false, reason: 'Audience EU invalide (NaN ou négative)' };
+    }
+    
+    // Validation date de début
     if (!ad.start_date) {
       return { isValid: false, reason: 'Date de début manquante' };
     }
     
+    if (typeof ad.start_date !== 'string' || ad.start_date.trim() === '') {
+      return { isValid: false, reason: 'Date de début vide ou invalide' };
+    }
+    
     const startDate = new Date(ad.start_date);
     if (isNaN(startDate.getTime())) {
-      return { isValid: false, reason: 'Date de début invalide' };
+      return { isValid: false, reason: `Date de début non parsable: ${ad.start_date}` };
+    }
+    
+    // Validation date de fin (si présente)
+    if (ad.end_date) {
+      const endDate = new Date(ad.end_date);
+      if (isNaN(endDate.getTime())) {
+        return { isValid: false, reason: `Date de fin non parsable: ${ad.end_date}` };
+      }
+      
+      if (endDate < startDate) {
+        return { isValid: false, reason: 'Date de fin antérieure à la date de début' };
+      }
+    }
+    
+    // Validation marque
+    if (!ad.brand || ad.brand.trim() === '') {
+      return { isValid: false, reason: 'Marque manquante ou vide' };
+    }
+    
+    // Validation ID
+    if (!ad.ad_id || ad.ad_id.trim() === '') {
+      return { isValid: false, reason: 'ID publicité manquant' };
     }
     
     return { isValid: true };
   }
 
   /**
-   * Calcule le budget estimé pour une publicité
+   * Version simplifiée pour compatibilité
+   */
+  validateAd(ad: AdsData): { isValid: boolean; reason?: string } {
+    return this.validateAdWithDetails(ad);
+  }
+
+  /**
+   * Calcule le budget estimé pour une publicité avec diagnostic enrichi
    */
   calculateBudget(ad: AdsData): BudgetCalculation {
-    const validation = this.validateAd(ad);
+    const validation = this.validateAdWithDetails(ad);
     
     if (!validation.isValid) {
       return {
@@ -174,6 +217,35 @@ export class BudgetCalculator {
   }
 
   /**
+   * Fonction de diagnostic pour logger les publicités exclues
+   */
+  logExcludedAds(ads: AdsData[]): void {
+    console.group('🔍 DIAGNOSTIC DES PUBLICITÉS EXCLUES');
+    console.info(`Analyse de ${ads.length} publicités...`);
+    
+    let excludedCount = 0;
+    
+    ads.forEach(ad => {
+      const calculation = this.calculateBudget(ad);
+      
+      if (!calculation.isValid) {
+        excludedCount++;
+        console.warn('Publicité exclue', ad.ad_id, {
+          audience: ad.audience_eu_total,
+          startDate: ad.start_date,
+          endDate: ad.end_date,
+          format: ad.creative_format,
+          secteur: ad.brand,
+          reason: calculation.exclusionReason
+        });
+      }
+    });
+    
+    console.info(`📊 Résumé: ${ads.length - excludedCount} valides / ${ads.length} analysées (${excludedCount} exclues)`);
+    console.groupEnd();
+  }
+
+  /**
    * Met à jour les paramètres de calcul
    */
   updateSettings(newSettings: Partial<BudgetSettings>): void {
@@ -200,4 +272,9 @@ export const estimateBudget = (ad: AdsData, settings?: Partial<BudgetSettings>) 
 export const calculateTotalBudget = (ads: AdsData[], settings?: Partial<BudgetSettings>) => {
   const calculator = settings ? new BudgetCalculator(settings) : budgetCalculator;
   return calculator.calculateSummary(ads);
+};
+
+export const logExcludedAds = (ads: AdsData[], settings?: Partial<BudgetSettings>) => {
+  const calculator = settings ? new BudgetCalculator(settings) : budgetCalculator;
+  calculator.logExcludedAds(ads);
 };

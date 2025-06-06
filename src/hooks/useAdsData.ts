@@ -15,9 +15,22 @@ export const useAdsData = (
   
   const { data: ads = [], isLoading, error } = useQuery({
     queryKey: ['ads', selectedBrands, projectId, startDate, endDate],
-    queryFn: () => selectedBrands.length > 0 
-      ? adsDataService.getAdsByBrands(selectedBrands, projectId, startDate, endDate)
-      : adsDataService.getAllAds(projectId, startDate, endDate),
+    queryFn: async () => {
+      console.log(`🔍 Récupération des données publicitaires...`);
+      console.log(`Filtres appliqués:`, {
+        selectedBrands: selectedBrands.length,
+        projectId,
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString()
+      });
+      
+      const result = selectedBrands.length > 0 
+        ? await adsDataService.getAdsByBrands(selectedBrands, projectId, startDate, endDate)
+        : await adsDataService.getAllAds(projectId, startDate, endDate);
+      
+      console.log(`📊 ${result.length} publicités récupérées depuis la base de données`);
+      return result;
+    },
   });
 
   const { data: brands = [] } = useQuery({
