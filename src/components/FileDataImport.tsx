@@ -1,13 +1,14 @@
-
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileSpreadsheet } from 'lucide-react';
-import { fileParser, FileParseResult, ColumnMapping } from '@/services/fileParser';
+import { fileParser, FileParseResult } from '@/services/fileParser';
+import { ExtendedColumnMapping, columnDetector } from '@/services/parsers/columnDetector';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { FileUploadZone } from './FileImport/FileUploadZone';
 import { FileParseResults } from './FileImport/FileParseResults';
 import { ImportActions } from './FileImport/ImportActions';
 import { DataPreview } from './FileImport/DataPreview';
+import { DemographicColumnsHelp } from './Demographics/DemographicColumnsHelp';
 import { useAdsData } from '@/hooks/useAdsData';
 import { toast } from '@/hooks/use-toast';
 import { Project } from '@/types/projects';
@@ -23,7 +24,7 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileResult, setFileResult] = useState<FileParseResult | null>(null);
   const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
+  const [columnMapping, setColumnMapping] = useState<ExtendedColumnMapping>(columnDetector.createEmptyMapping());
   const [parsedData, setParsedData] = useState<AdRawData[]>([]);
   const [parseResult, setParseResult] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -38,7 +39,7 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
       console.log('📁 Traitement du fichier:', file.name);
       const result = await fileParser.parseFile(file);
       setFileResult(result);
-      setColumnMapping(result.detectedColumns);
+      setColumnMapping(result.detectedColumns as ExtendedColumnMapping);
       
       if (result.errors.length > 0) {
         toast({
@@ -118,19 +119,19 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
       budget_estimated: ad.audience_total * 5,
       creative_format: ad.format,
       start_month: ad.start_date ? new Date(ad.start_date).toISOString().substring(0, 7) : '',
-      // Valeurs par défaut pour les champs démographiques
-      audience_fr_18_24_h: 0,
-      audience_fr_18_24_f: 0,
-      audience_fr_25_34_h: 0,
-      audience_fr_25_34_f: 0,
-      audience_fr_35_44_h: 0,
-      audience_fr_35_44_f: 0,
-      audience_fr_45_54_h: 0,
-      audience_fr_45_54_f: 0,
-      audience_fr_55_64_h: 0,
-      audience_fr_55_64_f: 0,
-      audience_fr_65_plus_h: 0,
-      audience_fr_65_plus_f: 0,
+      // Données démographiques depuis audience_breakdown
+      audience_fr_18_24_h: ad.audience_breakdown?.['audience_fr_18_24_h'] || 0,
+      audience_fr_18_24_f: ad.audience_breakdown?.['audience_fr_18_24_f'] || 0,
+      audience_fr_25_34_h: ad.audience_breakdown?.['audience_fr_25_34_h'] || 0,
+      audience_fr_25_34_f: ad.audience_breakdown?.['audience_fr_25_34_f'] || 0,
+      audience_fr_35_44_h: ad.audience_breakdown?.['audience_fr_35_44_h'] || 0,
+      audience_fr_35_44_f: ad.audience_breakdown?.['audience_fr_35_44_f'] || 0,
+      audience_fr_45_54_h: ad.audience_breakdown?.['audience_fr_45_54_h'] || 0,
+      audience_fr_45_54_f: ad.audience_breakdown?.['audience_fr_45_54_f'] || 0,
+      audience_fr_55_64_h: ad.audience_breakdown?.['audience_fr_55_64_h'] || 0,
+      audience_fr_55_64_f: ad.audience_breakdown?.['audience_fr_55_64_f'] || 0,
+      audience_fr_65_plus_h: ad.audience_breakdown?.['audience_fr_65_plus_h'] || 0,
+      audience_fr_65_plus_f: ad.audience_breakdown?.['audience_fr_65_plus_f'] || 0,
     }));
 
     insertAds(adsData);
@@ -160,6 +161,21 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
     URL.revokeObjectURL(url);
   };
 
+  // Déterminer les colonnes démographiques manquantes
+  const demographicColumns = [
+    'audience_fr_18_24_h', 'audience_fr_18_24_f',
+    'audience_fr_25_34_h', 'audience_fr_25_34_f',
+    'audience_fr_35_44_h', 'audience_fr_35_44_f',
+    'audience_fr_45_54_h', 'audience_fr_45_54_f',
+    'audience_fr_55_64_h', 'audience_fr_55_64_f',
+    'audience_fr_65_plus_h', 'audience_fr_65_plus_f'
+  ];
+
+  const missingDemographicColumns = fileResult ? 
+    demographicColumns.filter(col => 
+      columnMapping[col as keyof ExtendedColumnMapping] === null
+    ) : [];
+
   return (
     <div className="space-y-6">
       <Card>
@@ -184,6 +200,14 @@ export const FileDataImport = ({ selectedProject, forcedBrand }: FileDataImportP
             selectedProject={selectedProject}
             onConfigureMapping={() => setShowMappingDialog(true)}
           />
+
+          {/* Aide pour les colonnes démographiques */}
+          {fileResult && missingDemographicColumns.length > 0 && (
+            <DemographicColumnsHelp 
+              missingColumns={missingDemographicColumns}
+              showExamples={true}
+            />
+          )}
 
           <ImportActions
             parseResult={parseResult}

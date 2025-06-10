@@ -3,18 +3,17 @@ import { AdRawData, ParsedImportResult } from '@/types/adRawData';
 import { excelParser } from './parsers/excelParser';
 import { csvParser } from './parsers/csvParser';
 import { dataConverter } from './parsers/dataConverter';
-import { columnDetector } from './parsers/columnDetector';
-import type { ColumnMapping } from './parsers/columnDetector';
+import { columnDetector, ExtendedColumnMapping } from './parsers/columnDetector';
 
 export interface FileParseResult {
   data: string[][];
   headers: string[];
   totalRows: number;
-  detectedColumns: Record<string, number | null>;
+  detectedColumns: ExtendedColumnMapping;
   errors: string[];
 }
 
-export type { ColumnMapping };
+export type { ExtendedColumnMapping as ColumnMapping };
 
 export const fileParser = {
   async parseFile(file: File): Promise<FileParseResult> {
@@ -24,7 +23,7 @@ export const fileParser = {
       data: [],
       headers: [],
       totalRows: 0,
-      detectedColumns: {},
+      detectedColumns: {} as ExtendedColumnMapping,
       errors: []
     };
 
@@ -40,8 +39,17 @@ export const fileParser = {
         return result;
       }
 
-      // Détection automatique des colonnes
+      // Détection automatique des colonnes (y compris démographiques)
       parseResult.detectedColumns = columnDetector.detectColumns(parseResult.headers);
+      
+      console.log('🎯 Colonnes détectées:', {
+        standard: Object.keys(parseResult.detectedColumns).filter(k => 
+          !k.startsWith('audience_fr_') && parseResult.detectedColumns[k as keyof ExtendedColumnMapping] !== null
+        ).length,
+        demographic: Object.keys(parseResult.detectedColumns).filter(k => 
+          k.startsWith('audience_fr_') && parseResult.detectedColumns[k as keyof ExtendedColumnMapping] !== null
+        ).length
+      });
       
       return parseResult;
     } catch (error) {
@@ -52,7 +60,7 @@ export const fileParser = {
 
   convertToAdData(
     rawData: string[][], 
-    columnMapping: ColumnMapping, 
+    columnMapping: ExtendedColumnMapping, 
     forcedBrand?: string
   ): ParsedImportResult {
     return dataConverter.convertToAdData(rawData, columnMapping, forcedBrand);
