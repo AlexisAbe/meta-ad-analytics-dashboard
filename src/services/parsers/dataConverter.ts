@@ -1,14 +1,15 @@
+
 import { AdRawData, ParsedImportResult } from '@/types/adRawData';
 import { dateParser } from '@/utils/dateParser';
-import { ExtendedColumnMapping } from './columnDetector';
+import { ColumnMapping } from './columnDetector';
 
 export const dataConverter = {
   convertToAdData(
     rawData: string[][], 
-    columnMapping: ExtendedColumnMapping, 
+    columnMapping: ColumnMapping, 
     forcedBrand?: string
   ): ParsedImportResult {
-    console.log('🚀 Conversion vers AdRawData avec mapping étendu:', columnMapping);
+    console.log('🚀 Conversion vers AdRawData avec mapping:', columnMapping);
     console.log('🏷️ Marque forcée reçue:', forcedBrand);
     
     const result: ParsedImportResult = {
@@ -24,24 +25,6 @@ export const dataConverter = {
     if (columnMapping.ad_id === null) {
       result.errors.push('Colonne ID obligatoire manquante');
       return result;
-    }
-
-    // Vérification des colonnes démographiques
-    const demographicColumns = [
-      'audience_fr_18_24_h', 'audience_fr_18_24_f',
-      'audience_fr_25_34_h', 'audience_fr_25_34_f',
-      'audience_fr_35_44_h', 'audience_fr_35_44_f',
-      'audience_fr_45_54_h', 'audience_fr_45_54_f',
-      'audience_fr_55_64_h', 'audience_fr_55_64_f',
-      'audience_fr_65_plus_h', 'audience_fr_65_plus_f'
-    ];
-
-    const missingDemographicColumns = demographicColumns.filter(col => 
-      columnMapping[col as keyof ExtendedColumnMapping] === null
-    );
-
-    if (missingDemographicColumns.length > 0) {
-      result.warnings.push(`Colonnes démographiques manquantes (${missingDemographicColumns.length}/12): les données démographiques ne seront pas disponibles`);
     }
 
     for (let i = 1; i < rawData.length; i++) {
@@ -74,8 +57,7 @@ export const dataConverter = {
       valides: result.validLines,
       exclues: result.excludedLines,
       incomplètes: result.incompleteLines,
-      marqueUtilisee: forcedBrand,
-      colonnesDemographiques: 12 - missingDemographicColumns.length
+      marqueUtilisee: forcedBrand
     });
 
     return result;
@@ -83,18 +65,13 @@ export const dataConverter = {
 
   parseRowToAdData(
     row: string[], 
-    mapping: ExtendedColumnMapping, 
+    mapping: ColumnMapping, 
     forcedBrand?: string, 
     lineNumber?: number
   ): AdRawData | null {
     const getValue = (field: string): string => {
-      const index = mapping[field as keyof ExtendedColumnMapping];
+      const index = mapping[field];
       return index !== null && index < row.length ? (row[index] || '').toString().trim() : '';
-    };
-
-    const getNumericValue = (field: string): number => {
-      const value = getValue(field);
-      return parseInt(value) || 0;
     };
 
     const ad_id = getValue('ad_id');
@@ -145,29 +122,6 @@ export const dataConverter = {
       console.log(`🏷️ Ligne ${lineNumber} - Marque détectée/défaut: ${brand}`);
     }
 
-    // Extraction des données démographiques
-    const audience_breakdown: Record<string, number> = {
-      'audience_fr_18_24_h': getNumericValue('audience_fr_18_24_h'),
-      'audience_fr_18_24_f': getNumericValue('audience_fr_18_24_f'),
-      'audience_fr_25_34_h': getNumericValue('audience_fr_25_34_h'),
-      'audience_fr_25_34_f': getNumericValue('audience_fr_25_34_f'),
-      'audience_fr_35_44_h': getNumericValue('audience_fr_35_44_h'),
-      'audience_fr_35_44_f': getNumericValue('audience_fr_35_44_f'),
-      'audience_fr_45_54_h': getNumericValue('audience_fr_45_54_h'),
-      'audience_fr_45_54_f': getNumericValue('audience_fr_45_54_f'),
-      'audience_fr_55_64_h': getNumericValue('audience_fr_55_64_h'),
-      'audience_fr_55_64_f': getNumericValue('audience_fr_55_64_f'),
-      'audience_fr_65_plus_h': getNumericValue('audience_fr_65_plus_h'),
-      'audience_fr_65_plus_f': getNumericValue('audience_fr_65_plus_f'),
-    };
-
-    // Validation des données démographiques
-    const totalDemographic = Object.values(audience_breakdown).reduce((sum, val) => sum + val, 0);
-    if (totalDemographic > audience_total * 1.1) { // Tolérance de 10%
-      status = 'incomplète';
-      exclusion_reason = 'Incohérence dans les données démographiques (somme > audience totale)';
-    }
-
     const adData: AdRawData = {
       ad_id,
       snapshot_url: getValue('snapshot_url'),
@@ -181,7 +135,6 @@ export const dataConverter = {
       brand,
       format,
       sector: getValue('sector'),
-      audience_breakdown,
       status,
       exclusion_reason
     };
@@ -192,7 +145,6 @@ export const dataConverter = {
       brand,
       start_date,
       end_date,
-      totalDemographic,
       exclusion_reason
     });
 

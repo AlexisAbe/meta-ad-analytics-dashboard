@@ -18,7 +18,6 @@ import { useKPIs } from '@/hooks/useKPIs';
 import { useBudgetCalculations } from '@/hooks/useBudgetCalculations';
 import { BudgetSettings } from './BudgetSettings';
 import { DiagnosticPanel } from './DiagnosticPanel';
-import { DemographicOverview } from './Demographics/DemographicOverview';
 import { AdsData } from '@/types/ads';
 import { BudgetSettings as BudgetSettingsType } from '@/types/budget';
 
@@ -176,9 +175,6 @@ export const KPIOverview = ({ ads, selectedBrands }: KPIOverviewProps) => {
           );
         })}
       </div>
-
-      {/* Analyse démographique */}
-      <DemographicOverview ads={ads} selectedBrands={selectedBrands} />
 
       {/* Informations sur le calcul */}
       <Card className="border-blue-200 bg-blue-50">

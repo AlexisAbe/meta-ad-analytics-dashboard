@@ -1,7 +1,6 @@
 
 import Papa from 'papaparse';
 import { FileParseResult } from '../fileParser';
-import { columnDetector } from './columnDetector';
 
 export const csvParser = {
   async parseCsvFile(file: File): Promise<FileParseResult> {
@@ -18,7 +17,7 @@ export const csvParser = {
               data: [],
               headers: [],
               totalRows: 0,
-              detectedColumns: columnDetector.createEmptyMapping(),
+              detectedColumns: {},
               errors: [`Erreur lors du parsing CSV: ${error instanceof Error ? error.message : 'Erreur inconnue'}`]
             });
           }
@@ -28,7 +27,7 @@ export const csvParser = {
             data: [],
             headers: [],
             totalRows: 0,
-            detectedColumns: columnDetector.createEmptyMapping(),
+            detectedColumns: {},
             errors: ['Erreur lors du parsing CSV']
           });
         },
@@ -43,7 +42,7 @@ export const csvParser = {
       data: rawData,
       headers: [],
       totalRows: rawData.length,
-      detectedColumns: columnDetector.createEmptyMapping(),
+      detectedColumns: {},
       errors: []
     };
 

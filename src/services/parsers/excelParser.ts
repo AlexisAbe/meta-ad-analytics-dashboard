@@ -2,7 +2,6 @@
 import * as XLSX from 'xlsx';
 import { FileParseResult } from '../fileParser';
 import { dateParser } from '@/utils/dateParser';
-import { columnDetector } from './columnDetector';
 
 export const excelParser = {
   async parseExcelFile(file: File): Promise<FileParseResult> {
@@ -35,7 +34,7 @@ export const excelParser = {
             data: [],
             headers: [],
             totalRows: 0,
-            detectedColumns: columnDetector.createEmptyMapping(),
+            detectedColumns: {},
             errors: [`Erreur lors du parsing Excel: ${error instanceof Error ? error.message : 'Erreur inconnue'}`]
           });
         }
@@ -46,7 +45,7 @@ export const excelParser = {
           data: [],
           headers: [],
           totalRows: 0,
-          detectedColumns: columnDetector.createEmptyMapping(),
+          detectedColumns: {},
           errors: ['Erreur lors de la lecture du fichier Excel']
         });
       };
@@ -60,7 +59,7 @@ export const excelParser = {
       data: rawData,
       headers: [],
       totalRows: rawData.length,
-      detectedColumns: columnDetector.createEmptyMapping(),
+      detectedColumns: {},
       errors: []
     };
 
