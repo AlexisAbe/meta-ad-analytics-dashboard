@@ -9,11 +9,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, X, ExternalLink, Calendar } from 'lucide-react';
+import { Users, X, ExternalLink, Calendar, Info } from 'lucide-react';
 import { AdsData } from '@/types/ads';
 import { DemographicChart } from './DemographicChart';
-import { DemographicBadge } from './DemographicBadge';
-import { demographicUtils } from '@/utils/demographicUtils';
 import { demographicAnalyzer } from '@/services/demographicAnalyzer';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -22,7 +20,7 @@ interface AudienceModalProps {
   isOpen: boolean;
   onClose: () => void;
   ad: AdsData;
-  allAds?: AdsData[];
+  allAds?: AdsData[]; // Pour calculer la moyenne globale
   showComparison?: boolean;
 }
 
@@ -33,16 +31,16 @@ export const AudienceModal = ({
   allAds = [], 
   showComparison = false 
 }: AudienceModalProps) => {
+  // État local pour le toggle de comparaison
   const [showComparisonLocal, setShowComparisonLocal] = useState(showComparison);
 
-  // Utiliser les nouveaux utilitaires
-  const demographicDisplay = demographicUtils.calculateDisplayData([ad]);
-  const messages = demographicUtils.getMessages();
+  // Calculer les données démographiques pour cette publicité
+  const adDemographics = demographicAnalyzer.calculateDemographicBreakdown([ad]);
   
   // Calculer la moyenne globale si demandée
   const comparison = showComparisonLocal && allAds.length > 0 
     ? demographicAnalyzer.compareToAverage(
-        demographicDisplay.demographics.breakdown,
+        adDemographics.breakdown,
         demographicAnalyzer.calculateGlobalAverage(allAds)
       )
     : undefined;
@@ -58,6 +56,9 @@ export const AudienceModal = ({
       return dateString;
     }
   };
+
+  // Message d'erreur uniquement si vraiment aucune donnée
+  const showNoDataMessage = !adDemographics.hasData;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -117,32 +118,39 @@ export const AudienceModal = ({
             </div>
           </div>
 
-          {/* Badge de complétude utilisant le nouveau composant */}
-          {demographicDisplay.hasData && (
+          {/* Indicateurs de complétude */}
+          {adDemographics.hasData && (
             <div className="flex items-center gap-2 mt-3">
               <Badge variant="outline" className="text-xs">
-                {demographicDisplay.availableAgeGroups.length}/6 tranches disponibles ({demographicDisplay.completeness}%)
+                {adDemographics.availableAgeGroups.length}/6 tranches disponibles ({adDemographics.completeness}%)
               </Badge>
-              <DemographicBadge data={demographicDisplay} />
+              {adDemographics.completeness < 100 && (
+                <Badge variant="secondary" className="text-xs text-orange-700 bg-orange-100">
+                  <Info className="h-3 w-3 mr-1" />
+                  Données partielles
+                </Badge>
+              )}
             </div>
           )}
         </div>
 
-        {/* Message d'erreur seulement si vraiment aucune donnée */}
-        {!demographicDisplay.hasData && (
+        {/* Message d'aide seulement si vraiment aucune donnée */}
+        {showNoDataMessage && (
           <div className="text-center py-8">
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <h4 className="font-medium text-gray-700 mb-2">{messages.noDataTitle}</h4>
-            <p className="text-sm text-gray-500 mb-4">{messages.noDataDescription}</p>
+            <h4 className="font-medium text-gray-700 mb-2">Données démographiques non disponibles</h4>
+            <p className="text-sm text-gray-500 mb-4">
+              Aucun champ démographique détecté dans ce fichier.
+            </p>
             <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
               <p className="font-medium mb-1">Formats supportés :</p>
-              <p>{messages.noDataHelp}</p>
+              <p>"Audience FR 25-34 Homme", "FR_35_44_Female", "45-54 H"...</p>
             </div>
           </div>
         )}
 
         {/* Options de vue - seulement si on a des données et des données de comparaison */}
-        {demographicDisplay.hasData && allAds.length > 0 && (
+        {adDemographics.hasData && allAds.length > 0 && (
           <div className="flex items-center gap-2 mb-4">
             <span className="text-sm text-gray-600">Affichage :</span>
             <Button
@@ -163,13 +171,28 @@ export const AudienceModal = ({
         )}
 
         {/* Graphique démographique - afficher dès qu'on a des données */}
-        {demographicDisplay.hasData && (
+        {adDemographics.hasData && (
           <DemographicChart
-            data={demographicDisplay.demographics}
+            data={adDemographics}
             comparison={comparison}
             showComparison={showComparisonLocal}
             title="Répartition démographique (France)"
           />
+        )}
+
+        {/* Message informatif si des tranches sont manquantes */}
+        {adDemographics.hasData && adDemographics.completeness < 100 && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Certaines tranches d'âge ne sont pas renseignées dans cette publicité.</p>
+                <p className="text-xs text-blue-700">
+                  Tranches disponibles : {adDemographics.availableAgeGroups.join(', ')} ans ({adDemographics.completeness}%)
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Actions */}
